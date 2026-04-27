@@ -19,6 +19,8 @@ class User extends Authenticatable
         'email',
         'phone',
         'password',
+        'invisible_cost_pct',
+        'profit_multiplier',
     ];
 
     protected $hidden = [
@@ -28,7 +30,9 @@ class User extends Authenticatable
     protected function casts(): array
     {
         return [
-            'password' => 'hashed',
+            'password'           => 'hashed',
+            'invisible_cost_pct' => 'decimal:2',
+            'profit_multiplier'  => 'decimal:2',
         ];
     }
 }
