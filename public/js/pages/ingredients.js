@@ -5,9 +5,13 @@ const IngredientsPage = {
     data() {
         return {
             ingredients: [],
-            search: '',
+            currentPage: 1,
+            hasMore: false,
             loading: true,
+            loadingMore: false,
             loadError: false,
+            search: '',
+            debounceTimer: null,
             modal: {
                 visible: false,
                 step: 'type-select',
@@ -21,23 +25,41 @@ const IngredientsPage = {
     async created() {
         await this.fetchIngredients();
     },
-    computed: {
-        filteredIngredients() {
-            const q = this.search.trim().toLowerCase();
-            if (!q) return this.ingredients;
-            return this.ingredients.filter(i => i.name.toLowerCase().includes(q));
+    watch: {
+        search() {
+            clearTimeout(this.debounceTimer);
+            this.debounceTimer = setTimeout(() => this.fetchIngredients(), 300);
         },
     },
     methods: {
         async fetchIngredients() {
             this.loading = true;
             this.loadError = false;
+            this.ingredients = [];
+            this.currentPage = 1;
             try {
-                this.ingredients = await IngredientService.getAll();
+                const { items, meta } = await IngredientService.getPaginated(1, this.search.trim());
+                this.ingredients = items;
+                this.currentPage = meta.current_page;
+                this.hasMore     = meta.current_page < meta.last_page;
             } catch (_) {
                 this.loadError = true;
             } finally {
                 this.loading = false;
+            }
+        },
+
+        async loadMore() {
+            this.loadingMore = true;
+            try {
+                const { items, meta } = await IngredientService.getPaginated(this.currentPage + 1, this.search.trim());
+                this.ingredients.push(...items);
+                this.currentPage = meta.current_page;
+                this.hasMore     = meta.current_page < meta.last_page;
+            } catch (_) {
+                store.error('Erro ao carregar mais ingredientes.');
+            } finally {
+                this.loadingMore = false;
             }
         },
 
@@ -124,14 +146,15 @@ const IngredientsPage = {
                         <button class="btn btn-primary" @click="openCreateModal">+ Novo Ingrediente</button>
                     </div>
 
-                    <div v-if="!loading && !loadError" class="search-bar">
+                    <div class="search-bar">
                         <input type="text" v-model="search" placeholder="Buscar ingrediente..." class="search-input">
                     </div>
 
                     <div v-if="loading" class="loading">Carregando...</div>
                     <div v-else-if="loadError" class="error-state">Erro ao carregar ingredientes.</div>
-                    <p v-else-if="!ingredients.length" class="empty-state">Nenhum ingrediente cadastrado ainda.</p>
-                    <p v-else-if="!filteredIngredients.length" class="empty-state">Nenhum ingrediente encontrado para "{{ search }}".</p>
+                    <p v-else-if="!ingredients.length" class="empty-state">
+                        {{ search ? 'Nenhum ingrediente encontrado para "' + search + '".' : 'Nenhum ingrediente cadastrado ainda.' }}
+                    </p>
                     <div v-else class="table-wrapper">
                         <table>
                             <thead>
@@ -145,7 +168,7 @@ const IngredientsPage = {
                                 </tr>
                             </thead>
                             <tbody>
-                                <tr v-for="i in filteredIngredients" :key="i.id">
+                                <tr v-for="i in ingredients" :key="i.id">
                                     <td>{{ i.name }}</td>
                                     <td><span :class="typeBadgeClass(i.type)">{{ typeBadgeLabel(i.type) }}</span></td>
                                     <td>{{ i.unit }}</td>
@@ -160,6 +183,12 @@ const IngredientsPage = {
                                 </tr>
                             </tbody>
                         </table>
+
+                        <div v-if="hasMore" class="load-more">
+                            <button class="btn btn-secondary" :disabled="loadingMore" @click="loadMore">
+                                {{ loadingMore ? 'Carregando...' : 'Ver mais' }}
+                            </button>
+                        </div>
                     </div>
                 </div>
             </main>
@@ -172,7 +201,6 @@ const IngredientsPage = {
                 @close="modal.visible = false"
                 @submit="saveIngredient"
             >
-                <!-- Step 1: seleção de tipo -->
                 <div v-if="modal.step === 'type-select'" class="type-select">
                     <p class="type-select-label">O que você está cadastrando?</p>
                     <div class="type-select-cards">
@@ -189,7 +217,6 @@ const IngredientsPage = {
                     </div>
                 </div>
 
-                <!-- Step 2: formulário de detalhes -->
                 <template v-if="modal.step === 'form'">
                     <button v-if="!modal.editing" type="button" class="btn-back" @click="modal.step = 'type-select'">
                         ← Voltar

@@ -15,10 +15,14 @@ class RecipeController extends Controller
 
     public function index(Request $request): JsonResponse
     {
+        $per_page = min((int) $request->get('per_page', 15), 100);
+        $search   = $request->get('search', '');
+
         $recipes = Recipe::where('user_id', $request->user()->id)
             ->with('ingredients')
+            ->when($search, fn ($q) => $q->where('name', 'like', '%' . $search . '%'))
             ->orderBy('name')
-            ->paginate(15);
+            ->paginate($per_page);
 
         $recipes->getCollection()->transform(function ($recipe) {
             $cost = $this->cost_service->calculate($recipe);

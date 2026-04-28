@@ -585,6 +585,13 @@ tr:hover td { background: #fffbf8; }
 }
 .error-state { color: var(--danger); }
 
+/* Load more */
+.load-more {
+    display: flex;
+    justify-content: center;
+    padding: 20px 0 4px;
+}
+
 /* Utilities */
 .hidden { display: none !important; }
 .text-muted { color: var(--text-muted); font-size: 13px; }

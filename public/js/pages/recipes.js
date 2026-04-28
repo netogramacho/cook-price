@@ -5,8 +5,13 @@ const RecipesPage = {
     data() {
         return {
             recipes: [],
+            currentPage: 1,
+            hasMore: false,
             loading: true,
+            loadingMore: false,
             loadError: false,
+            search: '',
+            debounceTimer: null,
             availableIngredients: [],
             modal: {
                 visible: false,
@@ -27,16 +32,41 @@ const RecipesPage = {
     async created() {
         await this.fetchRecipes();
     },
+    watch: {
+        search() {
+            clearTimeout(this.debounceTimer);
+            this.debounceTimer = setTimeout(() => this.fetchRecipes(), 300);
+        },
+    },
     methods: {
         async fetchRecipes() {
             this.loading = true;
             this.loadError = false;
+            this.recipes = [];
+            this.currentPage = 1;
             try {
-                this.recipes = await RecipeService.getAll();
+                const { items, meta } = await RecipeService.getPaginated(1, this.search.trim());
+                this.recipes     = items;
+                this.currentPage = meta.current_page;
+                this.hasMore     = meta.current_page < meta.last_page;
             } catch (_) {
                 this.loadError = true;
             } finally {
                 this.loading = false;
+            }
+        },
+
+        async loadMore() {
+            this.loadingMore = true;
+            try {
+                const { items, meta } = await RecipeService.getPaginated(this.currentPage + 1, this.search.trim());
+                this.recipes.push(...items);
+                this.currentPage = meta.current_page;
+                this.hasMore     = meta.current_page < meta.last_page;
+            } catch (_) {
+                store.error('Erro ao carregar mais receitas.');
+            } finally {
+                this.loadingMore = false;
             }
         },
 
@@ -131,9 +161,15 @@ const RecipesPage = {
                         <button class="btn btn-primary" @click="openCreateModal">+ Nova Receita</button>
                     </div>
 
+                    <div class="search-bar">
+                        <input type="text" v-model="search" placeholder="Buscar receita..." class="search-input">
+                    </div>
+
                     <div v-if="loading" class="loading">Carregando...</div>
                     <div v-else-if="loadError" class="error-state">Erro ao carregar receitas.</div>
-                    <p v-else-if="!recipes.length" class="empty-state">Nenhuma receita cadastrada ainda.</p>
+                    <p v-else-if="!recipes.length" class="empty-state">
+                        {{ search ? 'Nenhuma receita encontrada para "' + search + '".' : 'Nenhuma receita cadastrada ainda.' }}
+                    </p>
                     <template v-else>
                         <div v-for="r in recipes" :key="r.id" class="recipe-card">
                             <div class="recipe-info">
@@ -148,6 +184,12 @@ const RecipesPage = {
                                 <a :href="'/recipes/' + r.id" class="btn btn-secondary btn-sm">Ver</a>
                                 <button class="btn btn-danger btn-sm" @click="deleteRecipe(r)">Excluir</button>
                             </div>
+                        </div>
+
+                        <div v-if="hasMore" class="load-more">
+                            <button class="btn btn-secondary" :disabled="loadingMore" @click="loadMore">
+                                {{ loadingMore ? 'Carregando...' : 'Ver mais' }}
+                            </button>
                         </div>
                     </template>
                 </div>

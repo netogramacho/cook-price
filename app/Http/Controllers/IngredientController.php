@@ -12,9 +12,13 @@ class IngredientController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
+        $per_page = min((int) $request->get('per_page', 15), 100);
+        $search   = $request->get('search', '');
+
         $ingredients = Ingredient::where('user_id', $request->user()->id)
+            ->when($search, fn ($q) => $q->where('name', 'like', '%' . $search . '%'))
             ->orderBy('name')
-            ->paginate(15);
+            ->paginate($per_page);
 
         return response()->json([
             'success' => true,
