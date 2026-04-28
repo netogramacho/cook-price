@@ -33,4 +33,3 @@ const App = {
 
 Vue.createApp(App).use(router).mount('#app');
 
-alert('Bem-vindo ao Gerenciador de Receitas! Faça login ou registre-se para começar a criar suas receitas deliciosas.');
