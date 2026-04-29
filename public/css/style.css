@@ -76,6 +76,7 @@ a:hover { text-decoration: underline; }
     color: var(--text);
     background: #fff;
     transition: border-color 0.15s;
+    resize: vertical;
     appearance: none;
     -webkit-appearance: none;
 }
@@ -584,6 +585,13 @@ tr:hover td { background: #fffbf8; }
     font-size: 15px;
 }
 .error-state { color: var(--danger); }
+
+/* Step hint */
+.step-hint {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-bottom: 16px;
+}
 
 /* Load more */
 .load-more {

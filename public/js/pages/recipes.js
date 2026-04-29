@@ -13,12 +13,15 @@ const RecipesPage = {
             search: '',
             debounceTimer: null,
             availableIngredients: [],
+            availablePackaging: [],
             modal: {
                 visible: false,
+                step: 'recipe-data',
                 loading: false,
                 errors: {},
                 form: { name: '', description: '', yield: '', yield_unit: '', invisible_cost_pct: 25, profit_multiplier: 3 },
-                ingredientRows: [],
+                ingredientRows: [{ ingredient_id: '', quantity: '' }],
+                packagingRows: [],
             },
         };
     },
@@ -73,30 +76,47 @@ const RecipesPage = {
         async openCreateModal() {
             let userDefaults = { invisible_cost_pct: 0, profit_margin_pct: 0 };
             try {
-                const [ingredients, user] = await Promise.all([
+                const [allIngredients, user] = await Promise.all([
                     IngredientService.getAll(),
                     UserService.get(),
                 ]);
-                this.availableIngredients = ingredients;
+                this.availableIngredients = allIngredients.filter(i => i.type === 'ingredient');
+                this.availablePackaging   = allIngredients.filter(i => i.type === 'packaging');
                 userDefaults = user;
             } catch (_) {
                 store.error('Erro ao carregar dados.');
                 return;
             }
 
-            if (!this.availableIngredients.length) {
-                store.error('Cadastre ao menos um ingrediente antes de criar uma receita.');
-                return;
-            }
-
+            this.modal.step = 'recipe-data';
             this.modal.form = {
                 name: '', description: '', yield: '', yield_unit: '',
                 invisible_cost_pct: Number(userDefaults.invisible_cost_pct),
                 profit_multiplier:  Number(userDefaults.profit_multiplier),
             };
             this.modal.ingredientRows = [{ ingredient_id: '', quantity: '' }];
+            this.modal.packagingRows  = [];
             this.modal.errors = {};
             this.modal.visible = true;
+        },
+
+        nextStep() {
+            if (this.modal.step === 'recipe-data') {
+                const errors = {};
+                if (!this.modal.form.name.trim())      errors.name       = ['O nome é obrigatório.'];
+                if (!this.modal.form.yield)             errors.yield      = ['O rendimento é obrigatório.'];
+                if (!this.modal.form.yield_unit.trim()) errors.yield_unit = ['A unidade é obrigatória.'];
+                if (Object.keys(errors).length) { this.modal.errors = errors; return; }
+                this.modal.errors = {};
+                this.modal.step = 'ingredients';
+            } else if (this.modal.step === 'ingredients') {
+                this.modal.step = 'packaging';
+            }
+        },
+
+        prevStep() {
+            if (this.modal.step === 'packaging')   this.modal.step = 'ingredients';
+            else if (this.modal.step === 'ingredients') this.modal.step = 'recipe-data';
         },
 
         addIngredientRow() {
@@ -107,13 +127,24 @@ const RecipesPage = {
             this.modal.ingredientRows.splice(index, 1);
         },
 
+        addPackagingRow() {
+            this.modal.packagingRows.push({ ingredient_id: '', quantity: '' });
+        },
+
+        removePackagingRow(index) {
+            this.modal.packagingRows.splice(index, 1);
+        },
+
         buildIngredientsPayload() {
-            return this.modal.ingredientRows
+            const ingredients = this.modal.ingredientRows
                 .filter(row => row.ingredient_id && row.quantity)
-                .map(row => ({
-                    ingredient_id: row.ingredient_id,
-                    quantity: this.parseDecimal(row.quantity),
-                }));
+                .map(row => ({ ingredient_id: row.ingredient_id, quantity: this.parseDecimal(row.quantity) }));
+
+            const packaging = this.modal.packagingRows
+                .filter(row => row.ingredient_id && row.quantity)
+                .map(row => ({ ingredient_id: row.ingredient_id, quantity: this.parseDecimal(row.quantity) }));
+
+            return [...ingredients, ...packaging];
         },
 
         async saveRecipe() {
@@ -178,6 +209,8 @@ const RecipesPage = {
                                     Custo total: R$ {{ fmtCurrency(r.total_cost) }}
                                     &nbsp;·&nbsp;
                                     Por {{ r.yield_unit }}: R$ {{ fmtCurrency(r.cost_per_yield) }}
+                                    &nbsp;·&nbsp;
+                                    Preço sugerido/{{ r.yield_unit }}: R$ {{ fmtCurrency(r.suggested_price_per_yield) }}
                                 </span>
                             </div>
                             <div class="recipe-actions">
@@ -197,49 +230,57 @@ const RecipesPage = {
 
             <app-modal
                 :visible="modal.visible"
-                title="Nova Receita"
-                :loading="modal.loading"
+                :title="modal.step === 'recipe-data' ? 'Nova Receita — Dados' : modal.step === 'ingredients' ? 'Nova Receita — Ingredientes' : 'Nova Receita — Embalagens'"
+                hide-actions
                 @close="modal.visible = false"
-                @submit="saveRecipe"
             >
-                <div class="form-group" :class="{ 'has-error': modal.errors.name }">
-                    <label>Nome da Receita</label>
-                    <input type="text" v-model="modal.form.name" placeholder="Ex: Bolo de chocolate">
-                    <span class="field-error">{{ modal.errors.name?.[0] ?? '' }}</span>
-                </div>
-                <div class="form-group">
-                    <label>Descrição (opcional)</label>
-                    <textarea v-model="modal.form.description" rows="2" placeholder="Descreva a receita..."></textarea>
-                </div>
-                <div class="form-row">
-                    <div class="form-group" :class="{ 'has-error': modal.errors.yield }">
-                        <label>Rendimento</label>
-                        <input type="tel" inputmode="decimal" v-model="modal.form.yield" placeholder="10" @keypress="onlyNumbers">
-                        <span class="field-error">{{ modal.errors.yield?.[0] ?? '' }}</span>
+                <!-- Etapa 1: Dados da receita -->
+                <template v-if="modal.step === 'recipe-data'">
+                    <div class="form-group" :class="{ 'has-error': modal.errors.name }">
+                        <label>Nome da Receita</label>
+                        <input type="text" v-model="modal.form.name" placeholder="Ex: Bolo de chocolate">
+                        <span class="field-error">{{ modal.errors.name?.[0] ?? '' }}</span>
                     </div>
-                    <div class="form-group" :class="{ 'has-error': modal.errors.yield_unit }">
-                        <label>Unidade</label>
-                        <input type="text" v-model="modal.form.yield_unit" placeholder="porções">
-                        <span class="field-error">{{ modal.errors.yield_unit?.[0] ?? '' }}</span>
+                    <div class="form-group">
+                        <label>Descrição (opcional)</label>
+                        <textarea v-model="modal.form.description" rows="2" placeholder="Descreva a receita..."></textarea>
                     </div>
-                </div>
-                <div class="form-group" :class="{ 'has-error': modal.errors.invisible_cost_pct }">
-                    <label>Custos Invisíveis (%)</label>
-                    <input type="tel" inputmode="decimal" v-model="modal.form.invisible_cost_pct" placeholder="25" @keypress="onlyNumbers">
-                    <span class="field-error">{{ modal.errors.invisible_cost_pct?.[0] ?? '' }}</span>
-                </div>
-                <div class="form-group" :class="{ 'has-error': modal.errors.profit_multiplier }">
-                    <label>Multiplicador de Lucro</label>
-                    <div class="multiplier-control">
-                        <input type="range" min="1" max="6" step="0.25" v-model.number="modal.form.profit_multiplier">
-                        <input type="tel" inputmode="decimal" v-model.number="modal.form.profit_multiplier" class="multiplier-input" @keypress="onlyNumbers">
-                        <span class="multiplier-suffix">x</span>
+                    <div class="form-row">
+                        <div class="form-group" :class="{ 'has-error': modal.errors.yield }">
+                            <label>Rendimento</label>
+                            <input type="tel" inputmode="decimal" v-model="modal.form.yield" placeholder="10" @keypress="onlyNumbers">
+                            <span class="field-error">{{ modal.errors.yield?.[0] ?? '' }}</span>
+                        </div>
+                        <div class="form-group" :class="{ 'has-error': modal.errors.yield_unit }">
+                            <label>Unidade</label>
+                            <input type="text" v-model="modal.form.yield_unit" placeholder="porções">
+                            <span class="field-error">{{ modal.errors.yield_unit?.[0] ?? '' }}</span>
+                        </div>
                     </div>
-                    <p class="multiplier-hint">Margem de lucro: {{ modalMargin }}%</p>
-                    <span class="field-error">{{ modal.errors.profit_multiplier?.[0] ?? '' }}</span>
-                </div>
-                <div class="form-group">
-                    <label>Ingredientes</label>
+                    <div class="form-group" :class="{ 'has-error': modal.errors.invisible_cost_pct }">
+                        <label>Custos Invisíveis (%)</label>
+                        <input type="tel" inputmode="decimal" v-model="modal.form.invisible_cost_pct" placeholder="25" @keypress="onlyNumbers">
+                        <span class="field-error">{{ modal.errors.invisible_cost_pct?.[0] ?? '' }}</span>
+                    </div>
+                    <div class="form-group" :class="{ 'has-error': modal.errors.profit_multiplier }">
+                        <label>Multiplicador de Lucro</label>
+                        <div class="multiplier-control">
+                            <input type="range" min="1" max="6" step="0.25" v-model.number="modal.form.profit_multiplier">
+                            <input type="tel" inputmode="decimal" v-model.number="modal.form.profit_multiplier" class="multiplier-input" @keypress="onlyNumbers">
+                            <span class="multiplier-suffix">x</span>
+                        </div>
+                        <p class="multiplier-hint">Margem de lucro: {{ modalMargin }}%</p>
+                        <span class="field-error">{{ modal.errors.profit_multiplier?.[0] ?? '' }}</span>
+                    </div>
+                    <div class="modal-actions">
+                        <button type="button" class="btn btn-secondary" @click="modal.visible = false">Cancelar</button>
+                        <button type="button" class="btn btn-primary" @click="nextStep">Próximo →</button>
+                    </div>
+                </template>
+
+                <!-- Etapa 2: Ingredientes -->
+                <template v-else-if="modal.step === 'ingredients'">
+                    <p class="step-hint">Adicione os ingredientes utilizados na receita. Embalagens serão adicionadas na próxima etapa.</p>
                     <span class="field-error">{{ modal.errors.ingredients?.[0] ?? '' }}</span>
                     <div class="ingredient-rows">
                         <div v-for="(row, index) in modal.ingredientRows" :key="index" class="ingredient-row">
@@ -251,7 +292,32 @@ const RecipesPage = {
                     <button type="button" class="btn btn-secondary btn-sm mt-8" @click="addIngredientRow">
                         + Adicionar Ingrediente
                     </button>
-                </div>
+                    <div class="modal-actions">
+                        <button type="button" class="btn btn-secondary" @click="prevStep">← Voltar</button>
+                        <button type="button" class="btn btn-primary" @click="nextStep">Próximo →</button>
+                    </div>
+                </template>
+
+                <!-- Etapa 3: Embalagens -->
+                <template v-else-if="modal.step === 'packaging'">
+                    <p class="step-hint">Adicione as embalagens utilizadas na receita (opcional).</p>
+                    <div class="ingredient-rows">
+                        <div v-for="(row, index) in modal.packagingRows" :key="index" class="ingredient-row">
+                            <ingredient-autocomplete v-model="row.ingredient_id" :options="availablePackaging" />
+                            <input type="tel" inputmode="decimal" v-model="row.quantity" placeholder="Qtd" @keypress="onlyNumbers">
+                            <button type="button" class="btn btn-danger btn-sm" @click="removePackagingRow(index)">×</button>
+                        </div>
+                    </div>
+                    <button type="button" class="btn btn-secondary btn-sm mt-8" @click="addPackagingRow">
+                        + Adicionar Embalagem
+                    </button>
+                    <div class="modal-actions">
+                        <button type="button" class="btn btn-secondary" @click="prevStep">← Voltar</button>
+                        <button type="button" class="btn btn-primary" :disabled="modal.loading" @click="saveRecipe">
+                            {{ modal.loading ? 'Salvando...' : 'Salvar' }}
+                        </button>
+                    </div>
+                </template>
             </app-modal>
         </div>
     `,

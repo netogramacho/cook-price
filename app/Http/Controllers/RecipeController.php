@@ -28,8 +28,9 @@ class RecipeController extends Controller
             $cost = $this->cost_service->calculate($recipe);
 
             return array_merge($recipe->toArray(), [
-                'total_cost'     => $cost['total_cost'],
-                'cost_per_yield' => $cost['cost_per_yield'],
+                'total_cost'                => $cost['total_cost'],
+                'cost_per_yield'            => $cost['cost_per_yield'],
+                'suggested_price_per_yield' => $cost['suggested_price_per_yield'],
             ]);
         });
 

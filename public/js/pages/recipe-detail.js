@@ -211,9 +211,9 @@ const RecipeDetailPage = {
                                 <thead>
                                     <tr>
                                         <th>Ingrediente</th>
+                                        <th>Tipo</th>
                                         <th>Unidade</th>
                                         <th>Quantidade</th>
-                                        <th>Preço Unit.</th>
                                         <th>Subtotal</th>
                                         <th></th>
                                     </tr>
@@ -221,9 +221,9 @@ const RecipeDetailPage = {
                                 <tbody>
                                     <tr v-for="i in recipe.ingredients" :key="i.id">
                                         <td>{{ i.name }}</td>
+                                        <td><span :class="i.type === 'packaging' ? 'badge badge-packaging' : 'badge badge-ingredient'">{{ i.type === 'packaging' ? 'Embalagem' : 'Ingrediente' }}</span></td>
                                         <td>{{ i.unit }}</td>
                                         <td>{{ fmtQuantity(i.quantity) }}</td>
-                                        <td>R$ {{ fmtCurrency(i.last_price) }}</td>
                                         <td>R$ {{ fmtCurrency(i.subtotal) }}</td>
                                         <td>
                                             <div class="td-actions">
