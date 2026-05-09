@@ -20,6 +20,12 @@ const RecipeDetailPage = {
                 available: [],
                 form: { ingredient_id: '', quantity: '' },
             },
+            produceModal: {
+                visible: false,
+                loading: false,
+                errors: {},
+                form: { times: 1 },
+            },
         };
     },
     computed: {
@@ -153,6 +159,28 @@ const RecipeDetailPage = {
                 store.error(err.message || 'Erro ao remover ingrediente.');
             }
         },
+
+        openProduceModal() {
+            this.produceModal.form   = { times: 1 };
+            this.produceModal.errors = {};
+            this.produceModal.visible = true;
+        },
+
+        async produce() {
+            this.produceModal.loading = true;
+            this.produceModal.errors  = {};
+            try {
+                await RecipeService.produce(this.recipe.id, { times: Number(this.produceModal.form.times) });
+                store.success('Produção registrada com sucesso.');
+                this.produceModal.visible = false;
+                await this.fetchRecipe();
+            } catch (err) {
+                this.produceModal.errors = err.errors || {};
+                if (!err.errors) store.error(err.message || 'Erro ao registrar produção.');
+            } finally {
+                this.produceModal.loading = false;
+            }
+        },
     },
     template: `
         <div class="app-layout">
@@ -170,7 +198,10 @@ const RecipeDetailPage = {
                                 <p v-if="recipe.description" class="recipe-detail-desc">{{ recipe.description }}</p>
                                 <p class="recipe-meta">Rendimento: {{ fmtCurrency(recipe.yield) }} {{ recipe.yield_unit }}</p>
                             </div>
-                            <button class="btn btn-secondary" @click="openEditModal">Editar</button>
+                            <div class="recipe-header-actions">
+                                <button class="btn btn-secondary" @click="openEditModal">Editar</button>
+                                <button class="btn btn-primary" @click="openProduceModal">Produzir</button>
+                            </div>
                         </div>
 
                         <div class="cost-summary">
@@ -297,6 +328,27 @@ const RecipeDetailPage = {
                     <label>Quantidade</label>
                     <input type="tel" inputmode="decimal" v-model="addIngredientModal.form.quantity" placeholder="0.000" @keypress="onlyNumbers">
                     <span class="field-error">{{ addIngredientModal.errors.quantity?.[0] ?? '' }}</span>
+                </div>
+            </app-modal>
+
+            <app-modal
+                :visible="produceModal.visible"
+                title="Registrar Produção"
+                :loading="produceModal.loading"
+                submit-text="Produzir"
+                @close="produceModal.visible = false"
+                @submit="produce"
+            >
+                <p class="step-hint">O estoque dos ingredientes será deduzido conforme as quantidades da receita.</p>
+                <div class="form-group">
+                    <label>Quantas vezes produzir?</label>
+                    <input type="number" min="1" step="1" v-model.number="produceModal.form.times">
+                </div>
+                <div v-if="produceModal.errors.stock" class="produce-errors">
+                    <p class="field-error" style="margin-bottom:4px">Estoque insuficiente:</p>
+                    <ul class="produce-error-list">
+                        <li v-for="msg in produceModal.errors.stock" :key="msg" class="field-error">{{ msg }}</li>
+                    </ul>
                 </div>
             </app-modal>
         </div>

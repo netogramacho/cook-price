@@ -69,6 +69,7 @@ const AppHeader = {
             <nav class="header-nav">
                 <a href="/ingredients" :class="{ active: activePage === 'ingredients' }">Ingredientes</a>
                 <a href="/recipes"     :class="{ active: activePage === 'recipes' }">Receitas</a>
+                <a href="/stock"       :class="{ active: activePage === 'stock' }">Estoque</a>
             </nav>
             <div class="header-user">
                 <span class="user-name">{{ userName }}</span>

@@ -2,35 +2,25 @@
 
 namespace App\Models;
 
-use App\Enums\IngredientType;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class Ingredient extends Model
+class Purchase extends Model
 {
     use HasUuids;
 
     protected $fillable = [
         'user_id',
-        'name',
-        'type',
-        'unit',
-        'package_size',
-        'last_price',
-        'stock_quantity',
-        'min_stock',
+        'purchased_at',
+        'notes',
     ];
 
     protected function casts(): array
     {
         return [
-            'type'           => IngredientType::class,
-            'package_size'   => 'decimal:4',
-            'last_price'     => 'decimal:2',
-            'stock_quantity' => 'decimal:3',
-            'min_stock'      => 'decimal:3',
+            'purchased_at' => 'date',
         ];
     }
 
@@ -39,7 +29,7 @@ class Ingredient extends Model
         return $this->belongsTo(User::class);
     }
 
-    public function stockMovements(): HasMany
+    public function movements(): HasMany
     {
         return $this->hasMany(StockMovement::class);
     }

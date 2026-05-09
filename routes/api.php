@@ -2,7 +2,10 @@
 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\IngredientController;
+use App\Http\Controllers\PurchaseController;
 use App\Http\Controllers\RecipeController;
+use App\Http\Controllers\StockController;
+use App\Http\Controllers\StockMovementController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 
@@ -21,4 +24,10 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::apiResource('ingredients', IngredientController::class);
     Route::apiResource('recipes', RecipeController::class);
+
+    Route::get('stock',                                    [StockController::class, 'index']);
+    Route::post('purchases',                               [PurchaseController::class, 'store']);
+    Route::patch('ingredients/{ingredient}/stock',         [StockMovementController::class, 'adjust']);
+    Route::get('ingredients/{ingredient}/movements',       [StockMovementController::class, 'index']);
+    Route::post('recipes/{recipe}/produce',                [RecipeController::class, 'produce']);
 });

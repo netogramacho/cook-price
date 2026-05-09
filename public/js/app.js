@@ -8,6 +8,7 @@ const router = VueRouter.createRouter({
         { path: '/ingredients',  component: IngredientsPage },
         { path: '/recipes',      component: RecipesPage },
         { path: '/recipes/:id',  component: RecipeDetailPage },
+        { path: '/stock',        component: StockPage },
     ],
 });
 

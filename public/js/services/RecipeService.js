@@ -36,4 +36,8 @@ const RecipeService = {
     async delete(id) {
         await Api.delete(`/recipes/${id}`);
     },
+
+    async produce(id, data) {
+        await Api.post(`/recipes/${id}/produce`, data);
+    },
 };

@@ -6,12 +6,16 @@ use App\Http\Requests\Recipe\StoreRecipeRequest;
 use App\Http\Requests\Recipe\UpdateRecipeRequest;
 use App\Models\Recipe;
 use App\Services\RecipeCostService;
+use App\Services\StockMovementService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class RecipeController extends Controller
 {
-    public function __construct(private RecipeCostService $cost_service) {}
+    public function __construct(
+        private RecipeCostService $cost_service,
+        private StockMovementService $stock_service,
+    ) {}
 
     public function index(Request $request): JsonResponse
     {
@@ -131,6 +135,58 @@ class RecipeController extends Controller
             'success' => true,
             'data'    => null,
             'message' => 'Receita excluída com sucesso.',
+        ]);
+    }
+
+    public function produce(Request $request, Recipe $recipe): JsonResponse
+    {
+        if ($recipe->user_id !== $request->user()->id) {
+            return response()->json([
+                'success'    => false,
+                'message'    => 'Receita não encontrada.',
+                'error_code' => 'RECIPE_NOT_FOUND',
+            ], 404);
+        }
+
+        $request->validate([
+            'times' => ['required', 'integer', 'min:1'],
+        ]);
+
+        $times = (int) $request->times;
+        $recipe->load('ingredients');
+
+        $insufficient = [];
+        foreach ($recipe->ingredients as $ingredient) {
+            $needed = (float) $ingredient->pivot->quantity * $times;
+            if ((float) $ingredient->stock_quantity < $needed) {
+                $insufficient[] = sprintf(
+                    '%s (tem %s%s, precisa %s%s)',
+                    $ingredient->name,
+                    number_format((float) $ingredient->stock_quantity, 3, ',', '.'),
+                    $ingredient->unit,
+                    number_format($needed, 3, ',', '.'),
+                    $ingredient->unit
+                );
+            }
+        }
+
+        if ($insufficient) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Estoque insuficiente para produção.',
+                'errors'  => ['stock' => $insufficient],
+            ], 422);
+        }
+
+        foreach ($recipe->ingredients as $ingredient) {
+            $quantity = (float) $ingredient->pivot->quantity * $times;
+            $this->stock_service->deduct($ingredient, $quantity, 'production', $request->user(), $recipe->id);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data'    => null,
+            'message' => 'Produção registrada com sucesso.',
         ]);
     }
 

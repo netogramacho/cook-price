@@ -1,15 +1,16 @@
 const AppModal = {
     name: 'AppModal',
     props: {
-        visible:    { type: Boolean, required: true },
-        title:      { type: String, default: '' },
-        loading:    { type: Boolean, default: false },
-        submitText: { type: String, default: 'Salvar' },
-        hideActions: { type: Boolean, default: false },
+        visible:        { type: Boolean, required: true },
+        title:          { type: String, default: '' },
+        loading:        { type: Boolean, default: false },
+        submitText:     { type: String, default: 'Salvar' },
+        hideActions:    { type: Boolean, default: false },
+        closeOnOverlay: { type: Boolean, default: false },
     },
     emits: ['close', 'submit'],
     template: `
-        <div v-if="visible" class="modal-overlay" @click.self="$emit('close')">
+        <div v-if="visible" class="modal-overlay" @click.self="closeOnOverlay && $emit('close')">
             <div class="modal">
                 <div class="modal-header">
                     <h3>{{ title }}</h3>
