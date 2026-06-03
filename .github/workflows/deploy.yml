@@ -24,17 +24,8 @@ jobs:
           npm ci
           npm run build
 
-      - name: Copy frontend to server
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          port: ${{ secrets.SSH_PORT }}
-          source: "public/index.html,public/assets/"
-          target: "~/cookprice/"
-
-      - name: Deploy Laravel via SSH
+      # git pull antes do SCP para não sobrescrever o index.html gerado no CI
+      - name: Update server code
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SSH_HOST }}
@@ -44,6 +35,28 @@ jobs:
           script: |
             cd ~/cookprice
             git pull origin main
+
+      # SCP envia os assets compilados (sobrescreve o index.html do git pull)
+      - name: Copy built frontend to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          source: "public/index.html,public/assets/"
+          target: "~/cookprice/"
+
+      # Artisan commands após tudo no lugar
+      - name: Run Laravel commands
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          script: |
+            cd ~/cookprice
             php ~/composer.phar install --no-dev --optimize-autoloader
             php artisan migrate --force
             php artisan config:cache
