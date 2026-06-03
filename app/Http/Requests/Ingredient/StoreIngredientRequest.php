@@ -26,6 +26,7 @@ class StoreIngredientRequest extends FormRequest
             'unit'         => ['required', 'string', Rule::in(['g', 'ml', 'un'])],
             'package_size' => ['required', 'numeric', 'min:0.001'],
             'last_price'   => ['required', 'numeric', 'min:0'],
+            'min_stock'    => ['nullable', 'numeric', 'min:0'],
         ];
     }
 

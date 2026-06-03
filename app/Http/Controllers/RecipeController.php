@@ -152,35 +152,46 @@ class RecipeController extends Controller
             'times' => ['required', 'integer', 'min:1'],
         ]);
 
-        $times = (int) $request->times;
+        $times       = (int) $request->times;
+        $force       = (bool) $request->input('force', false);
+        $skip_stock  = (bool) $request->user()->disable_stock_control;
         $recipe->load('ingredients');
 
-        $insufficient = [];
-        foreach ($recipe->ingredients as $ingredient) {
-            $needed = (float) $ingredient->pivot->quantity * $times;
-            if ((float) $ingredient->stock_quantity < $needed) {
-                $insufficient[] = sprintf(
-                    '%s (tem %s%s, precisa %s%s)',
-                    $ingredient->name,
-                    number_format((float) $ingredient->stock_quantity, 3, ',', '.'),
-                    $ingredient->unit,
-                    number_format($needed, 3, ',', '.'),
-                    $ingredient->unit
-                );
+        if (!$skip_stock) {
+            if (!$force) {
+                $insufficient = [];
+                foreach ($recipe->ingredients as $ingredient) {
+                    $needed = (float) $ingredient->pivot->quantity * $times;
+                    if ((float) $ingredient->stock_quantity < $needed) {
+                        $insufficient[] = sprintf(
+                            '%s (tem %s%s, precisa %s%s)',
+                            $ingredient->name,
+                            number_format((float) $ingredient->stock_quantity, 3, ',', '.'),
+                            $ingredient->unit,
+                            number_format($needed, 3, ',', '.'),
+                            $ingredient->unit
+                        );
+                    }
+                }
+
+                if ($insufficient) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Estoque insuficiente para produção.',
+                        'errors'  => ['stock' => $insufficient],
+                    ], 422);
+                }
             }
-        }
 
-        if ($insufficient) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Estoque insuficiente para produção.',
-                'errors'  => ['stock' => $insufficient],
-            ], 422);
-        }
-
-        foreach ($recipe->ingredients as $ingredient) {
-            $quantity = (float) $ingredient->pivot->quantity * $times;
-            $this->stock_service->deduct($ingredient, $quantity, 'production', $request->user(), $recipe->id);
+            foreach ($recipe->ingredients as $ingredient) {
+                $needed = (float) $ingredient->pivot->quantity * $times;
+                $actual = $force
+                    ? min((float) $ingredient->stock_quantity, $needed)
+                    : $needed;
+                if ($actual > 0) {
+                    $this->stock_service->deduct($ingredient, $actual, 'production', $request->user(), $recipe->id);
+                }
+            }
         }
 
         return response()->json([

@@ -18,7 +18,12 @@ const IngredientsPage = {
                 editing: null,
                 loading: false,
                 errors: {},
-                form: { name: '', type: '', unit: '', package_size: '', last_price: '' },
+                form: { name: '', type: '', unit: '', package_size: '', last_price: '', min_stock: '' },
+            },
+            confirmModal: {
+                visible: false,
+                loading: false,
+                item: null,
             },
         };
     },
@@ -67,7 +72,7 @@ const IngredientsPage = {
             this.modal.editing = null;
             this.modal.step = 'type-select';
             this.modal.errors = {};
-            this.modal.form = { name: '', type: '', unit: '', package_size: '', last_price: '' };
+            this.modal.form = { name: '', type: '', unit: '', package_size: '', last_price: '', min_stock: '' };
             this.modal.visible = true;
         },
 
@@ -81,6 +86,7 @@ const IngredientsPage = {
                 unit:         ingredient.unit,
                 package_size: Number(ingredient.package_size),
                 last_price:   this.fmtCurrency(ingredient.last_price),
+                min_stock:    ingredient.min_stock ? this.fmtQuantity(ingredient.min_stock) : '',
             };
             this.modal.visible = true;
         },
@@ -99,6 +105,7 @@ const IngredientsPage = {
                     ...this.modal.form,
                     package_size: this.parseDecimal(this.modal.form.package_size),
                     last_price:   this.parseDecimal(this.modal.form.last_price),
+                    min_stock:    this.modal.form.min_stock !== '' ? this.parseDecimal(this.modal.form.min_stock) : null,
                 };
                 if (isEditing) {
                     await IngredientService.update(this.modal.editing.id, payload);
@@ -117,14 +124,22 @@ const IngredientsPage = {
             }
         },
 
-        async deleteIngredient(ingredient) {
-            if (!confirm(`Excluir "${ingredient.name}"? Esta ação não pode ser desfeita.`)) return;
+        openDeleteConfirm(item) {
+            this.confirmModal.item    = item;
+            this.confirmModal.visible = true;
+        },
+
+        async confirmDelete() {
+            this.confirmModal.loading = true;
             try {
-                await IngredientService.delete(ingredient.id);
+                await IngredientService.delete(this.confirmModal.item.id);
                 store.success('Ingrediente excluído.');
+                this.confirmModal.visible = false;
                 await this.fetchIngredients();
             } catch (err) {
                 store.error(err.message || 'Erro ao excluir ingrediente.');
+            } finally {
+                this.confirmModal.loading = false;
             }
         },
 
@@ -156,7 +171,7 @@ const IngredientsPage = {
                         {{ search ? 'Nenhum ingrediente encontrado para "' + search + '".' : 'Nenhum ingrediente cadastrado ainda.' }}
                     </p>
                     <div v-else class="table-wrapper">
-                        <table>
+                        <table class="ingredients-table">
                             <thead>
                                 <tr>
                                     <th>Nome</th>
@@ -177,7 +192,7 @@ const IngredientsPage = {
                                     <td>
                                         <div class="td-actions">
                                             <button class="btn btn-secondary btn-sm" @click="openEditModal(i)">Editar</button>
-                                            <button class="btn btn-danger btn-sm" @click="deleteIngredient(i)">Excluir</button>
+                                            <button class="btn btn-danger btn-sm" @click="openDeleteConfirm(i)">Excluir</button>
                                         </div>
                                     </td>
                                 </tr>
@@ -246,7 +261,27 @@ const IngredientsPage = {
                         <input type="tel" inputmode="decimal" v-model="modal.form.last_price" placeholder="0.00" @keypress="onlyNumbers">
                         <span class="field-error">{{ modal.errors.last_price?.[0] ?? '' }}</span>
                     </div>
+                    <div class="form-group" :class="{ 'has-error': modal.errors.min_stock }">
+                        <label>Estoque Mínimo ({{ modal.form.unit || 'unidade' }}) — opcional</label>
+                        <input type="tel" inputmode="decimal" v-model="modal.form.min_stock" placeholder="Ex: 500" @keypress="onlyNumbers">
+                        <span class="field-error">{{ modal.errors.min_stock?.[0] ?? '' }}</span>
+                    </div>
                 </template>
+            </app-modal>
+
+            <app-modal
+                :visible="confirmModal.visible"
+                title="Excluir Ingrediente"
+                hide-actions
+                @close="confirmModal.visible = false"
+            >
+                <p class="confirm-modal-text">Excluir <strong>{{ confirmModal.item?.name }}</strong>? Esta ação não pode ser desfeita.</p>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" :disabled="confirmModal.loading" @click="confirmModal.visible = false">Cancelar</button>
+                    <button type="button" class="btn btn-danger" :disabled="confirmModal.loading" @click="confirmDelete">
+                        {{ confirmModal.loading ? 'Excluindo...' : 'Excluir' }}
+                    </button>
+                </div>
             </app-modal>
         </div>
     `,

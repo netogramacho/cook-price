@@ -1,6 +1,6 @@
 const RecipesPage = {
     name: 'RecipesPage',
-    components: { AppHeader, AppModal, IngredientAutocomplete },
+    components: { AppHeader, AppModal, IngredientAutocomplete, QuickIngredientModal },
     mixins: [FormattersMixin, InputsMixin],
     data() {
         return {
@@ -22,6 +22,17 @@ const RecipesPage = {
                 form: { name: '', description: '', yield: '', yield_unit: '', invisible_cost_pct: 25, profit_multiplier: 3 },
                 ingredientRows: [{ ingredient_id: '', quantity: '' }],
                 packagingRows: [],
+            },
+            quickIngredient: {
+                visible: false,
+                initialName: '',
+                forceType: null,
+                targetRow: null,
+            },
+            confirmModal: {
+                visible: false,
+                loading: false,
+                item: null,
             },
         };
     },
@@ -171,14 +182,36 @@ const RecipesPage = {
             }
         },
 
-        async deleteRecipe(recipe) {
-            if (!confirm(`Excluir a receita "${recipe.name}"? Esta ação não pode ser desfeita.`)) return;
+        openQuickCreate(row, name, forceType) {
+            this.quickIngredient = { visible: true, initialName: name, forceType, targetRow: row };
+        },
+
+        onQuickCreated(ingredient) {
+            if (ingredient.type === 'ingredient') {
+                this.availableIngredients.push(ingredient);
+            } else {
+                this.availablePackaging.push(ingredient);
+            }
+            this.quickIngredient.targetRow.ingredient_id = ingredient.id;
+            this.quickIngredient.visible = false;
+        },
+
+        openDeleteConfirm(item) {
+            this.confirmModal.item    = item;
+            this.confirmModal.visible = true;
+        },
+
+        async confirmDelete() {
+            this.confirmModal.loading = true;
             try {
-                await RecipeService.delete(recipe.id);
+                await RecipeService.delete(this.confirmModal.item.id);
                 store.success('Receita excluída.');
+                this.confirmModal.visible = false;
                 await this.fetchRecipes();
             } catch (err) {
                 store.error(err.message || 'Erro ao excluir receita.');
+            } finally {
+                this.confirmModal.loading = false;
             }
         },
     },
@@ -215,7 +248,7 @@ const RecipesPage = {
                             </div>
                             <div class="recipe-actions">
                                 <a :href="'/recipes/' + r.id" class="btn btn-secondary btn-sm">Ver</a>
-                                <button class="btn btn-danger btn-sm" @click="deleteRecipe(r)">Excluir</button>
+                                <button class="btn btn-danger btn-sm" @click="openDeleteConfirm(r)">Excluir</button>
                             </div>
                         </div>
 
@@ -284,7 +317,7 @@ const RecipesPage = {
                     <span class="field-error">{{ modal.errors.ingredients?.[0] ?? '' }}</span>
                     <div class="ingredient-rows">
                         <div v-for="(row, index) in modal.ingredientRows" :key="index" class="ingredient-row">
-                            <ingredient-autocomplete v-model="row.ingredient_id" :options="availableIngredients" />
+                            <ingredient-autocomplete v-model="row.ingredient_id" :options="availableIngredients" :allow-create="true" @create="openQuickCreate(row, $event, 'ingredient')" />
                             <input type="tel" inputmode="decimal" v-model="row.quantity" placeholder="Qtd" @keypress="onlyNumbers">
                             <button type="button" class="btn btn-danger btn-sm" @click="removeIngredientRow(index)">×</button>
                         </div>
@@ -303,7 +336,7 @@ const RecipesPage = {
                     <p class="step-hint">Adicione as embalagens utilizadas na receita (opcional).</p>
                     <div class="ingredient-rows">
                         <div v-for="(row, index) in modal.packagingRows" :key="index" class="ingredient-row">
-                            <ingredient-autocomplete v-model="row.ingredient_id" :options="availablePackaging" />
+                            <ingredient-autocomplete v-model="row.ingredient_id" :options="availablePackaging" :allow-create="true" @create="openQuickCreate(row, $event, 'packaging')" />
                             <input type="tel" inputmode="decimal" v-model="row.quantity" placeholder="Qtd" @keypress="onlyNumbers">
                             <button type="button" class="btn btn-danger btn-sm" @click="removePackagingRow(index)">×</button>
                         </div>
@@ -318,6 +351,29 @@ const RecipesPage = {
                         </button>
                     </div>
                 </template>
+            </app-modal>
+
+            <quick-ingredient-modal
+                :visible="quickIngredient.visible"
+                :initial-name="quickIngredient.initialName"
+                :force-type="quickIngredient.forceType"
+                @created="onQuickCreated"
+                @close="quickIngredient.visible = false"
+            />
+
+            <app-modal
+                :visible="confirmModal.visible"
+                title="Excluir Receita"
+                hide-actions
+                @close="confirmModal.visible = false"
+            >
+                <p class="confirm-modal-text">Excluir <strong>{{ confirmModal.item?.name }}</strong>? Esta ação não pode ser desfeita.</p>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" :disabled="confirmModal.loading" @click="confirmModal.visible = false">Cancelar</button>
+                    <button type="button" class="btn btn-danger" :disabled="confirmModal.loading" @click="confirmDelete">
+                        {{ confirmModal.loading ? 'Excluindo...' : 'Excluir' }}
+                    </button>
+                </div>
             </app-modal>
         </div>
     `,

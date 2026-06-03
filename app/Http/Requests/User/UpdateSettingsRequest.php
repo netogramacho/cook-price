@@ -14,8 +14,9 @@ class UpdateSettingsRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'invisible_cost_pct' => ['required', 'numeric', 'min:0', 'max:100'],
-            'profit_multiplier'  => ['required', 'numeric', 'min:1', 'max:10'],
+            'invisible_cost_pct'    => ['required', 'numeric', 'min:0', 'max:100'],
+            'profit_multiplier'     => ['required', 'numeric', 'min:1', 'max:10'],
+            'disable_stock_control' => ['sometimes', 'boolean'],
         ];
     }
 

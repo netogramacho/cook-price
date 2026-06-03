@@ -21,6 +21,7 @@ class User extends Authenticatable
         'password',
         'invisible_cost_pct',
         'profit_multiplier',
+        'disable_stock_control',
     ];
 
     protected $hidden = [
@@ -31,8 +32,9 @@ class User extends Authenticatable
     {
         return [
             'password'           => 'hashed',
-            'invisible_cost_pct' => 'decimal:2',
-            'profit_multiplier'  => 'decimal:2',
+            'invisible_cost_pct'     => 'decimal:2',
+            'profit_multiplier'      => 'decimal:2',
+            'disable_stock_control'  => 'boolean',
         ];
     }
 }

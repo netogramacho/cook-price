@@ -1,11 +1,12 @@
 const IngredientAutocomplete = {
     name: 'IngredientAutocomplete',
     props: {
-        modelValue:  { type: String, default: '' },
-        options:     { type: Array,  default: () => [] },
-        placeholder: { type: String, default: 'Buscar ingrediente...' },
+        modelValue:   { type: String,  default: '' },
+        options:      { type: Array,   default: () => [] },
+        placeholder:  { type: String,  default: 'Buscar ingrediente...' },
+        allowCreate:  { type: Boolean, default: false },
     },
-    emits: ['update:modelValue'],
+    emits: ['update:modelValue', 'create'],
     data() {
         return {
             search: '',
@@ -56,12 +57,15 @@ const IngredientAutocomplete = {
                 autocomplete="off"
             >
             <div v-if="open && (filtered.length || search.trim())" class="autocomplete-dropdown">
-                <div v-if="!filtered.length" class="autocomplete-empty">Nenhum resultado.</div>
-                <ul v-else>
+                <div v-if="!filtered.length && !allowCreate" class="autocomplete-empty">Nenhum resultado.</div>
+                <ul v-if="filtered.length">
                     <li v-for="o in filtered" :key="o.id" @mousedown.prevent="select(o)">
                         {{ o.name }} <span class="autocomplete-unit">({{ o.unit }})</span>
                     </li>
                 </ul>
+                <div v-if="allowCreate && search.trim()" class="autocomplete-create" @mousedown.prevent="$emit('create', search.trim())">
+                    + Criar "{{ search.trim() }}"
+                </div>
             </div>
         </div>
     `,

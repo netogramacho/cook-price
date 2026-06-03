@@ -36,6 +36,7 @@ class IngredientController extends Controller
             'unit'         => $request->unit,
             'package_size' => $request->package_size,
             'last_price'   => $request->last_price,
+            'min_stock'    => $request->min_stock ?? null,
         ]);
 
         return response()->json([
@@ -72,7 +73,7 @@ class IngredientController extends Controller
             ], 404);
         }
 
-        $ingredient->update($request->only('name', 'type', 'unit', 'package_size', 'last_price'));
+        $ingredient->update($request->only('name', 'type', 'unit', 'package_size', 'last_price', 'min_stock'));
 
         return response()->json([
             'success' => true,

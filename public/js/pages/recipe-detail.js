@@ -24,7 +24,20 @@ const RecipeDetailPage = {
                 visible: false,
                 loading: false,
                 errors: {},
+                hasStockWarning: false,
                 form: { times: 1 },
+            },
+            editIngredientModal: {
+                visible: false,
+                loading: false,
+                errors: {},
+                ingredient: null,
+                form: { quantity: '' },
+            },
+            confirmModal: {
+                visible: false,
+                loading: false,
+                item: null,
             },
         };
     },
@@ -148,22 +161,59 @@ const RecipeDetailPage = {
             }
         },
 
-        async removeIngredient(ingredient) {
-            if (!confirm(`Remover "${ingredient.name}" desta receita?`)) return;
+        openRemoveConfirm(ingredient) {
+            this.confirmModal.item    = ingredient;
+            this.confirmModal.visible = true;
+        },
+
+        async confirmRemove() {
+            this.confirmModal.loading = true;
             try {
                 this.recipe = await RecipeService.update(this.recipe.id, {
-                    ingredients: this.buildIngredientsPayload({ removeId: ingredient.id }),
+                    ingredients: this.buildIngredientsPayload({ removeId: this.confirmModal.item.id }),
                 });
                 store.success('Ingrediente removido.');
+                this.confirmModal.visible = false;
             } catch (err) {
                 store.error(err.message || 'Erro ao remover ingrediente.');
+            } finally {
+                this.confirmModal.loading = false;
+            }
+        },
+
+        openEditIngredientModal(ingredient) {
+            this.editIngredientModal.ingredient = ingredient;
+            this.editIngredientModal.form       = { quantity: this.fmtQuantity(ingredient.quantity) };
+            this.editIngredientModal.errors     = {};
+            this.editIngredientModal.visible    = true;
+        },
+
+        async saveIngredientQuantity() {
+            this.editIngredientModal.loading = true;
+            this.editIngredientModal.errors  = {};
+            try {
+                const targetId    = this.editIngredientModal.ingredient.id;
+                const newQty      = this.parseDecimal(this.editIngredientModal.form.quantity);
+                const ingredients = this.recipe.ingredients.map(i => ({
+                    ingredient_id: i.id,
+                    quantity: i.id === targetId ? newQty : parseFloat(i.quantity),
+                }));
+                this.recipe = await RecipeService.update(this.recipe.id, { ingredients });
+                store.success('Quantidade atualizada.');
+                this.editIngredientModal.visible = false;
+            } catch (err) {
+                this.editIngredientModal.errors = err.errors || {};
+                if (!err.errors) store.error(err.message || 'Erro ao atualizar quantidade.');
+            } finally {
+                this.editIngredientModal.loading = false;
             }
         },
 
         openProduceModal() {
-            this.produceModal.form   = { times: 1 };
-            this.produceModal.errors = {};
-            this.produceModal.visible = true;
+            this.produceModal.form            = { times: 1 };
+            this.produceModal.errors          = {};
+            this.produceModal.hasStockWarning = false;
+            this.produceModal.visible         = true;
         },
 
         async produce() {
@@ -176,7 +226,26 @@ const RecipeDetailPage = {
                 await this.fetchRecipe();
             } catch (err) {
                 this.produceModal.errors = err.errors || {};
-                if (!err.errors) store.error(err.message || 'Erro ao registrar produção.');
+                if (err.errors?.stock) {
+                    this.produceModal.hasStockWarning = true;
+                } else if (!err.errors) {
+                    store.error(err.message || 'Erro ao registrar produção.');
+                }
+            } finally {
+                this.produceModal.loading = false;
+            }
+        },
+
+        async forceProduceAnyway() {
+            this.produceModal.loading = true;
+            try {
+                await RecipeService.produce(this.recipe.id, { times: Number(this.produceModal.form.times), force: true });
+                store.success('Produção registrada com sucesso.');
+                this.produceModal.visible         = false;
+                this.produceModal.hasStockWarning = false;
+                await this.fetchRecipe();
+            } catch (err) {
+                store.error(err.message || 'Erro ao registrar produção.');
             } finally {
                 this.produceModal.loading = false;
             }
@@ -258,7 +327,8 @@ const RecipeDetailPage = {
                                         <td>R$ {{ fmtCurrency(i.subtotal) }}</td>
                                         <td>
                                             <div class="td-actions">
-                                                <button class="btn btn-danger btn-sm" @click="removeIngredient(i)">Remover</button>
+                                                <button class="btn btn-secondary btn-sm" @click="openEditIngredientModal(i)">Editar</button>
+                                                <button class="btn btn-danger btn-sm" @click="openRemoveConfirm(i)">Remover</button>
                                             </div>
                                         </td>
                                     </tr>
@@ -332,9 +402,26 @@ const RecipeDetailPage = {
             </app-modal>
 
             <app-modal
+                :visible="editIngredientModal.visible"
+                title="Editar Quantidade"
+                :loading="editIngredientModal.loading"
+                submit-text="Salvar"
+                @close="editIngredientModal.visible = false"
+                @submit="saveIngredientQuantity"
+            >
+                <p class="step-hint">{{ editIngredientModal.ingredient?.name }} ({{ editIngredientModal.ingredient?.unit }})</p>
+                <div class="form-group" :class="{ 'has-error': editIngredientModal.errors['ingredients.0.quantity'] }">
+                    <label>Quantidade</label>
+                    <input type="tel" inputmode="decimal" v-model="editIngredientModal.form.quantity" @keypress="onlyNumbers">
+                    <span class="field-error">{{ editIngredientModal.errors['ingredients.0.quantity']?.[0] ?? '' }}</span>
+                </div>
+            </app-modal>
+
+            <app-modal
                 :visible="produceModal.visible"
                 title="Registrar Produção"
                 :loading="produceModal.loading"
+                :hide-actions="produceModal.hasStockWarning"
                 submit-text="Produzir"
                 @close="produceModal.visible = false"
                 @submit="produce"
@@ -344,11 +431,33 @@ const RecipeDetailPage = {
                     <label>Quantas vezes produzir?</label>
                     <input type="number" min="1" step="1" v-model.number="produceModal.form.times">
                 </div>
-                <div v-if="produceModal.errors.stock" class="produce-errors">
-                    <p class="field-error" style="margin-bottom:4px">Estoque insuficiente:</p>
+                <div v-if="produceModal.hasStockWarning" class="produce-warning">
+                    <p class="produce-warning-title">Estoque insuficiente para alguns ingredientes:</p>
                     <ul class="produce-error-list">
-                        <li v-for="msg in produceModal.errors.stock" :key="msg" class="field-error">{{ msg }}</li>
+                        <li v-for="msg in produceModal.errors.stock" :key="msg">{{ msg }}</li>
                     </ul>
+                    <p class="produce-warning-hint">Os ingredientes com falta de estoque serão zerados. Deseja continuar mesmo assim?</p>
+                    <div class="modal-actions">
+                        <button type="button" class="btn btn-secondary" @click="produceModal.visible = false">Cancelar</button>
+                        <button type="button" class="btn btn-primary" :disabled="produceModal.loading" @click="forceProduceAnyway">
+                            {{ produceModal.loading ? 'Salvando...' : 'Produzir mesmo assim' }}
+                        </button>
+                    </div>
+                </div>
+            </app-modal>
+
+            <app-modal
+                :visible="confirmModal.visible"
+                title="Remover Ingrediente"
+                hide-actions
+                @close="confirmModal.visible = false"
+            >
+                <p class="confirm-modal-text">Remover <strong>{{ confirmModal.item?.name }}</strong> desta receita?</p>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" :disabled="confirmModal.loading" @click="confirmModal.visible = false">Cancelar</button>
+                    <button type="button" class="btn btn-danger" :disabled="confirmModal.loading" @click="confirmRemove">
+                        {{ confirmModal.loading ? 'Removendo...' : 'Remover' }}
+                    </button>
                 </div>
             </app-modal>
         </div>

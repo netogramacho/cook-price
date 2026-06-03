@@ -20,7 +20,8 @@ const IngredientService = {
     },
 
     async create(data) {
-        await Api.post('/ingredients', data);
+        const res = await Api.post('/ingredients', data);
+        return res.data;
     },
 
     async update(id, data) {

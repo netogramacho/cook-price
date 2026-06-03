@@ -6,4 +6,8 @@ const UserService = {
     updateSettings(data) {
         return Api.put('/user/settings', data).then(r => r.data);
     },
+
+    changePassword(data) {
+        return Api.put('/user/password', data).then(r => r.data);
+    },
 };

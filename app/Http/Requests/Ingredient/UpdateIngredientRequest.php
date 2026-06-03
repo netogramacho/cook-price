@@ -28,6 +28,7 @@ class UpdateIngredientRequest extends FormRequest
             'unit'         => ['sometimes', 'string', Rule::in(['g', 'ml', 'un'])],
             'package_size' => ['sometimes', 'numeric', 'min:0.001'],
             'last_price'   => ['sometimes', 'numeric', 'min:0'],
+            'min_stock'    => ['sometimes', 'nullable', 'numeric', 'min:0'],
         ];
     }
 

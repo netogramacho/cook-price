@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\User\ChangePasswordRequest;
 use App\Http\Requests\User\UpdateSettingsRequest;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -10,7 +11,7 @@ class UserController extends Controller
 {
     public function show(Request $request): JsonResponse
     {
-        $user = $request->user()->only('id', 'name', 'email', 'invisible_cost_pct', 'profit_multiplier');
+        $user = $request->user()->only('id', 'name', 'email', 'invisible_cost_pct', 'profit_multiplier', 'disable_stock_control');
 
         return response()->json([
             'success' => true,
@@ -19,14 +20,25 @@ class UserController extends Controller
         ]);
     }
 
-    public function updateSettings(UpdateSettingsRequest $request): JsonResponse
+    public function changePassword(ChangePasswordRequest $request): JsonResponse
     {
-        $user = $request->user();
-        $user->update($request->only('invisible_cost_pct', 'profit_multiplier'));
+        $request->user()->update(['password' => $request->password]);
 
         return response()->json([
             'success' => true,
-            'data'    => $user->only('id', 'name', 'email', 'invisible_cost_pct', 'profit_multiplier'),
+            'data'    => null,
+            'message' => 'Senha alterada com sucesso.',
+        ]);
+    }
+
+    public function updateSettings(UpdateSettingsRequest $request): JsonResponse
+    {
+        $user = $request->user();
+        $user->update($request->only('invisible_cost_pct', 'profit_multiplier', 'disable_stock_control'));
+
+        return response()->json([
+            'success' => true,
+            'data'    => $user->only('id', 'name', 'email', 'invisible_cost_pct', 'profit_multiplier', 'disable_stock_control'),
             'message' => 'Configurações salvas com sucesso.',
         ]);
     }

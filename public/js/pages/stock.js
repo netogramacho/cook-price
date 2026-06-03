@@ -1,6 +1,6 @@
 const StockPage = {
     name: 'StockPage',
-    components: { AppHeader, AppModal, IngredientAutocomplete },
+    components: { AppHeader, AppModal, IngredientAutocomplete, QuickIngredientModal },
     mixins: [FormattersMixin, InputsMixin],
     data() {
         return {
@@ -38,6 +38,13 @@ const StockPage = {
                 currentPage: 1,
                 hasMore: false,
                 loadingMore: false,
+            },
+
+            quickIngredient: {
+                visible: false,
+                initialName: '',
+                forceType: null,
+                targetRow: null,
             },
         };
     },
@@ -163,12 +170,24 @@ const StockPage = {
             }
         },
 
+        openQuickCreate(row, name) {
+            this.quickIngredient = { visible: true, initialName: name, forceType: null, targetRow: row };
+        },
+
+        onQuickCreated(ingredient) {
+            this.allIngredients.push(ingredient);
+            this.quickIngredient.targetRow.ingredient_id = ingredient.id;
+            this.quickIngredient.targetRow.package_size  = this.fmtQuantity(ingredient.package_size);
+            this.quickIngredient.visible = false;
+        },
+
         // Adjust modal
         openAdjustModal(item) {
             this.adjustModal.ingredient = item;
             this.adjustModal.form = {
                 stock_quantity: this.fmtQuantity(item.stock_quantity),
-                movement_date:  '',
+                min_stock:      item.min_stock ? this.fmtQuantity(item.min_stock) : '',
+                movement_date:  new Date().toISOString().split('T')[0],
                 notes:          '',
             };
             this.adjustModal.errors = {};
@@ -181,6 +200,7 @@ const StockPage = {
             try {
                 const data = {
                     stock_quantity: this.parseDecimal(this.adjustModal.form.stock_quantity),
+                    min_stock:      this.adjustModal.form.min_stock !== '' ? this.parseDecimal(this.adjustModal.form.min_stock) : null,
                     movement_date:  this.adjustModal.form.movement_date || null,
                     notes:          this.adjustModal.form.notes.trim() || null,
                 };
@@ -190,6 +210,7 @@ const StockPage = {
                 const index = this.items.findIndex(i => i.id === this.adjustModal.ingredient.id);
                 if (index !== -1) {
                     this.items[index].stock_quantity = updated.stock_quantity;
+                    this.items[index].min_stock      = updated.min_stock;
                 }
             } catch (err) {
                 this.adjustModal.errors = err.errors || {};
@@ -348,7 +369,9 @@ const StockPage = {
                         <ingredient-autocomplete
                             :modelValue="row.ingredient_id"
                             :options="allIngredients"
+                            :allow-create="true"
                             @update:modelValue="onIngredientSelect(row, $event)"
+                            @create="openQuickCreate(row, $event)"
                         />
                         <button type="button" class="btn btn-danger btn-sm" @click="removePurchaseRow(index)">×</button>
                         <div class="purchase-row-fields">
@@ -404,8 +427,13 @@ const StockPage = {
                     <input type="tel" inputmode="decimal" v-model="adjustModal.form.stock_quantity" @keypress="onlyNumbers">
                     <span class="field-error">{{ adjustModal.errors.stock_quantity?.[0] ?? '' }}</span>
                 </div>
+                <div class="form-group" :class="{ 'has-error': adjustModal.errors.min_stock }">
+                    <label>Estoque mínimo ({{ adjustModal.ingredient?.unit }}) — opcional</label>
+                    <input type="tel" inputmode="decimal" v-model="adjustModal.form.min_stock" placeholder="Ex: 500" @keypress="onlyNumbers">
+                    <span class="field-error">{{ adjustModal.errors.min_stock?.[0] ?? '' }}</span>
+                </div>
                 <div class="form-group">
-                    <label>Data do ajuste (opcional)</label>
+                    <label>Data do ajuste</label>
                     <input type="date" v-model="adjustModal.form.movement_date">
                 </div>
                 <div class="form-group">
@@ -458,6 +486,14 @@ const StockPage = {
                     <button type="button" class="btn btn-secondary" @click="historyModal.visible = false">Fechar</button>
                 </div>
             </app-modal>
+
+            <quick-ingredient-modal
+                :visible="quickIngredient.visible"
+                :initial-name="quickIngredient.initialName"
+                :force-type="quickIngredient.forceType"
+                @created="onQuickCreated"
+                @close="quickIngredient.visible = false"
+            />
         </div>
     `,
 };

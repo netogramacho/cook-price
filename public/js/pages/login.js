@@ -43,6 +43,7 @@ const LoginPage = {
                     </button>
                 </form>
                 <p class="auth-link">Não tem conta? <a href="/register">Criar conta</a></p>
+                <p class="auth-link">Esqueceu a senha? <a href="https://wa.me/5512981299109" target="_blank" rel="noopener">Fale conosco</a></p>
             </div>
         </div>
     `,
