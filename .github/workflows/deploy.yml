@@ -9,7 +9,32 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Deploy via SSH
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Build React
+        run: |
+          cd frontend
+          npm ci
+          npm run build
+
+      - name: Copy frontend to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          source: "public/index.html,public/assets/"
+          target: "~/cookprice/"
+
+      - name: Deploy Laravel via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SSH_HOST }}
@@ -18,13 +43,9 @@ jobs:
           port: ${{ secrets.SSH_PORT }}
           script: |
             cd ~/cookprice
-            git checkout public/index.html
             git pull origin main
-            VERSION=$(git rev-parse --short HEAD)
-            sed -i "s/__CACHE_VERSION__/$VERSION/g" public/index.html
             php ~/composer.phar install --no-dev --optimize-autoloader
             php artisan migrate --force
             php artisan config:cache
             php artisan route:cache
             php artisan view:cache
-
