@@ -33,6 +33,7 @@ jobs:
           script: |
             cd ~/cookprice
             rm -f public/index.html
+            rm -rf public/build public/assets
             git pull origin main
 
       # SCP envia os assets compilados (sobrescreve o index.html do git pull)
