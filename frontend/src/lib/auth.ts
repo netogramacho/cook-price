@@ -5,6 +5,7 @@ export interface AuthUser {
   id: string
   name: string
   email: string
+  email_verified_at: string | null
   profit_multiplier?: number
   invisible_cost_pct?: number
   disable_stock_control?: boolean
@@ -36,4 +37,8 @@ export function logout(): void {
 
 export function isAuthenticated(): boolean {
   return !!getToken()
+}
+
+export function isEmailVerified(): boolean {
+  return !!getUser()?.email_verified_at
 }

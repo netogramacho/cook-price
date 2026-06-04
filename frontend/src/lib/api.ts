@@ -38,6 +38,14 @@ async function request<T>(method: string, endpoint: string, data?: unknown): Pro
       throw new Error('Não autorizado')
     }
 
+    if (res.status === 403) {
+      const err = await res.json().catch(() => ({}))
+      if ((err as { error_code?: string }).error_code === 'EMAIL_NOT_VERIFIED') {
+        window.location.href = '/verify-email'
+      }
+      throw err
+    }
+
     if (!res.ok) {
       const err = await res.json().catch(() => ({}))
       throw err

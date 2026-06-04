@@ -1,13 +1,22 @@
-import { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { FormField } from '../components/ui/FormField'
 import { AuthService } from '../services/AuthService'
 import { useAppStore } from '../store/useAppStore'
+import { logout } from '../lib/auth'
 
 export function Login() {
   const navigate = useNavigate()
-  const { error } = useAppStore()
+  const [searchParams] = useSearchParams()
+  const { success, error } = useAppStore()
   const [form, setForm] = useState({ email: '', password: '' })
+
+  useEffect(() => {
+    if (searchParams.get('verified') === '1') {
+      logout()
+      success('E-mail verificado com sucesso! Faça login para continuar.')
+    }
+  }, [])
   const [errors, setErrors] = useState<Record<string, string[]>>({})
   const [loading, setLoading] = useState(false)
 
@@ -46,7 +55,7 @@ export function Login() {
           </button>
         </form>
         <p className="auth-link">Não tem conta? <Link to="/register">Criar conta</Link></p>
-        <p className="auth-link">Esqueceu a senha? <a href="https://wa.me/5512981299109" target="_blank" rel="noopener noreferrer">Fale conosco</a></p>
+        <p className="auth-link">Esqueceu a senha? <Link to="/forgot-password">Recuperar acesso</Link></p>
       </div>
     </div>
   )

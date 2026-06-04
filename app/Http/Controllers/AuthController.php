@@ -20,12 +20,14 @@ class AuthController extends Controller
             'password' => $request->password,
         ]);
 
+        $user->sendEmailVerificationNotification();
+
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
             'success' => true,
             'data'    => [
-                'user'  => $user->only('id', 'name', 'email', 'phone'),
+                'user'  => $user->only('id', 'name', 'email', 'phone', 'email_verified_at'),
                 'token' => $token,
             ],
             'message' => 'Usuário criado com sucesso.',
@@ -48,7 +50,7 @@ class AuthController extends Controller
         return response()->json([
             'success' => true,
             'data'    => [
-                'user'  => $user->only('id', 'name', 'email', 'phone'),
+                'user'  => $user->only('id', 'name', 'email', 'phone', 'email_verified_at'),
                 'token' => $token,
             ],
             'message' => 'Login realizado com sucesso.',

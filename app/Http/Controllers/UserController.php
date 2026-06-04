@@ -11,7 +11,7 @@ class UserController extends Controller
 {
     public function show(Request $request): JsonResponse
     {
-        $user = $request->user()->only('id', 'name', 'email', 'invisible_cost_pct', 'profit_multiplier', 'disable_stock_control');
+        $user = $request->user()->only('id', 'name', 'email', 'email_verified_at', 'invisible_cost_pct', 'profit_multiplier', 'disable_stock_control');
 
         return response()->json([
             'success' => true,
