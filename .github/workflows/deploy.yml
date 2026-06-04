@@ -32,6 +32,7 @@ jobs:
           port: ${{ secrets.SSH_PORT }}
           script: |
             cd ~/cookprice
+            rm -f public/index.html
             git pull origin main
 
       # SCP envia os assets compilados (sobrescreve o index.html do git pull)
