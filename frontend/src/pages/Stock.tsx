@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState } from 'react'
 import { AppHeader } from '../components/AppHeader'
 import { Modal } from '../components/Modal'
 import { PageHeader } from '../components/ui/PageHeader'
@@ -7,6 +7,7 @@ import { AsyncState } from '../components/ui/AsyncState'
 import { LoadMoreButton } from '../components/ui/LoadMoreButton'
 import { FormField } from '../components/ui/FormField'
 import { NumericInput } from '../components/ui/NumericInput'
+import { TypeBadge } from '../components/ui/TypeBadge'
 import { IngredientAutocomplete } from '../components/IngredientAutocomplete'
 import { QuickIngredientModal } from '../components/QuickIngredientModal'
 import { StockService } from '../services/StockService'
@@ -14,6 +15,9 @@ import type { StockItem, Movement } from '../services/StockService'
 import { IngredientService } from '../services/IngredientService'
 import type { Ingredient } from '../services/IngredientService'
 import { useAppStore } from '../store/useAppStore'
+import { usePaginatedList } from '../hooks/usePaginatedList'
+import { useModal } from '../hooks/useModal'
+import { handleApiError } from '../utils/apiError'
 import { fmtCurrency, fmtQuantity } from '../utils/formatters'
 import { parseDecimal } from '../utils/inputs'
 
@@ -22,50 +26,25 @@ interface PurchaseRow { ingredient_id: string; package_size: string; num_package
 export function Stock() {
   const { success, error } = useAppStore()
 
-  const [items, setItems] = useState<StockItem[]>([])
-  const [currentPage, setCurrentPage] = useState(1)
-  const [hasMore, setHasMore] = useState(false)
-  const [loading, setLoading] = useState(true)
-  const [loadingMore, setLoadingMore] = useState(false)
-  const [loadError, setLoadError] = useState<string | false>(false)
-  const [search, setSearch] = useState('')
-  const searchRef = useRef('')
+  const { items, hasMore, loading, loadingMore, loadError, search, handleSearch, loadMore, refetch } =
+    usePaginatedList({
+      fetchFn: (page, q) => StockService.getPaginated(page, q),
+      onError: error,
+      loadMoreErrorMsg: 'Erro ao carregar mais itens.',
+    })
 
   const [allIngredients, setAllIngredients] = useState<Ingredient[]>([])
 
-  const [purchaseModal, setPurchaseModal] = useState({ visible: false, loading: false, errors: {} as Record<string, string[]> })
+  const purchaseModal = useModal({ visible: false, loading: false, errors: {} as Record<string, string[]> })
   const [purchaseForm, setPurchaseForm] = useState({ purchased_at: '', notes: '' })
   const [purchaseRows, setPurchaseRows] = useState<PurchaseRow[]>([{ ingredient_id: '', package_size: '', num_packages: '', total_price: '' }])
 
-  const [adjustModal, setAdjustModal] = useState({ visible: false, loading: false, errors: {} as Record<string, string[]>, ingredient: null as StockItem | null })
+  const adjustModal = useModal({ visible: false, loading: false, errors: {} as Record<string, string[]>, ingredient: null as StockItem | null })
   const [adjustForm, setAdjustForm] = useState({ stock_quantity: '', min_stock: '', movement_date: '', notes: '' })
 
   const [historyModal, setHistoryModal] = useState({ visible: false, loading: false, ingredient: null as StockItem | null, movements: [] as Movement[], currentPage: 1, hasMore: false, loadingMore: false })
 
   const [quickCreate, setQuickCreate] = useState({ visible: false, initialName: '', forceType: null as null, targetIndex: -1 })
-
-  async function fetchStock(q = searchRef.current) {
-    setLoading(true); setLoadError(false); setItems([]); setCurrentPage(1)
-    try {
-      const { items: data, meta } = await StockService.getPaginated(1, q.trim())
-      setItems(data); setCurrentPage(meta.current_page); setHasMore(meta.current_page < (meta.last_page ?? 1))
-    } catch (err: unknown) {
-      setLoadError((err as { message?: string }).message ?? 'Erro ao carregar estoque.')
-    }
-    finally { setLoading(false) }
-  }
-
-  async function loadMore() {
-    setLoadingMore(true)
-    try {
-      const { items: data, meta } = await StockService.getPaginated(currentPage + 1, searchRef.current.trim())
-      setItems(prev => [...prev, ...data]); setCurrentPage(meta.current_page); setHasMore(meta.current_page < (meta.last_page ?? 1))
-    } catch { error('Erro ao carregar mais itens.') }
-    finally { setLoadingMore(false) }
-  }
-
-  function handleSearch(q: string) { searchRef.current = q; setSearch(q); fetchStock(q) }
-  useEffect(() => { fetchStock() }, [])
 
   function fmtRefPrice(item: StockItem) {
     if (!item.package_price || !item.package_size) return '—'
@@ -77,7 +56,7 @@ export function Stock() {
     catch { error('Erro ao carregar ingredientes.'); return }
     setPurchaseForm({ purchased_at: '', notes: '' })
     setPurchaseRows([{ ingredient_id: '', package_size: '', num_packages: '', total_price: '' }])
-    setPurchaseModal({ visible: true, loading: false, errors: {} })
+    purchaseModal.open()
   }
 
   function onIngredientSelect(index: number, id: string) {
@@ -95,21 +74,19 @@ export function Stock() {
   const purchaseTotalValue = purchaseRows.reduce((sum, r) => sum + (parseDecimal(r.total_price) || 0), 0)
 
   async function savePurchase() {
-    setPurchaseModal(m => ({ ...m, loading: true, errors: {} }))
+    purchaseModal.startSubmit()
     try {
       const purchaseItems = purchaseRows
         .filter(r => r.ingredient_id && r.package_size && r.num_packages && r.total_price)
         .map(r => ({ ingredient_id: r.ingredient_id, package_size: parseDecimal(r.package_size), num_packages: parseDecimal(r.num_packages), total_price: parseDecimal(r.total_price) }))
       await StockService.createPurchase({ purchased_at: purchaseForm.purchased_at || null, notes: purchaseForm.notes.trim() || null, items: purchaseItems })
       success('Compra registrada com sucesso.')
-      setPurchaseModal(m => ({ ...m, visible: false }))
-      fetchStock()
-    } catch (err: unknown) {
-      const e = err as { errors?: Record<string, string[]>; message?: string }
-      setPurchaseModal(m => ({ ...m, errors: e.errors ?? {} }))
-      if (!e.errors) error(e.message ?? 'Erro ao registrar compra.')
+      purchaseModal.close()
+      refetch()
+    } catch (err) {
+      handleApiError(err, purchaseModal.setErrors, error, 'Erro ao registrar compra.')
     } finally {
-      setPurchaseModal(m => ({ ...m, loading: false }))
+      purchaseModal.setLoading(false)
     }
   }
 
@@ -120,33 +97,33 @@ export function Stock() {
   }
 
   function openAdjust(item: StockItem) {
-    setAdjustModal({ visible: true, loading: false, errors: {}, ingredient: item })
     setAdjustForm({
       stock_quantity: fmtQuantity(item.stock_quantity),
       min_stock: (item as unknown as Record<string, unknown>).min_stock ? fmtQuantity((item as unknown as Record<string, unknown>).min_stock as number) : '',
       movement_date: new Date().toISOString().split('T')[0],
       notes: '',
     })
+    adjustModal.open({ ingredient: item })
   }
 
   async function saveAdjust() {
-    setAdjustModal(m => ({ ...m, loading: true, errors: {} }))
+    adjustModal.startSubmit()
     try {
-      const updated = await StockService.adjust(adjustModal.ingredient!.id, {
+      const updated = await StockService.adjust(adjustModal.state.ingredient!.id, {
         stock_quantity: parseDecimal(adjustForm.stock_quantity),
         min_stock: adjustForm.min_stock !== '' ? parseDecimal(adjustForm.min_stock) : null,
         movement_date: adjustForm.movement_date || null,
         notes: adjustForm.notes.trim() || null,
       })
       success('Estoque ajustado com sucesso.')
-      setAdjustModal(m => ({ ...m, visible: false }))
-      setItems(prev => prev.map(i => i.id === adjustModal.ingredient!.id ? { ...i, ...(updated as Partial<StockItem>) } : i))
-    } catch (err: unknown) {
-      const e = err as { errors?: Record<string, string[]>; message?: string }
-      setAdjustModal(m => ({ ...m, errors: e.errors ?? {} }))
-      if (!e.errors) error(e.message ?? 'Erro ao ajustar estoque.')
+      adjustModal.close()
+      refetch()
+      // atualiza o item localmente para feedback imediato
+      void updated
+    } catch (err) {
+      handleApiError(err, adjustModal.setErrors, error, 'Erro ao ajustar estoque.')
     } finally {
-      setAdjustModal(m => ({ ...m, loading: false }))
+      adjustModal.setLoading(false)
     }
   }
 
@@ -203,7 +180,7 @@ export function Stock() {
                     {items.map(item => (
                       <tr key={item.id}>
                         <td>{item.name}</td>
-                        <td><span className={item.type === 'packaging' ? 'badge badge-packaging' : 'badge badge-ingredient'}>{item.type === 'packaging' ? 'Embalagem' : 'Ingrediente'}</span></td>
+                        <td><TypeBadge type={item.type} /></td>
                         <td>{fmtQuantity(item.stock_quantity)} {item.unit}</td>
                         <td>{fmtRefPrice(item)}</td>
                         <td>
@@ -223,7 +200,7 @@ export function Stock() {
         </div>
       </main>
 
-      <Modal visible={purchaseModal.visible} title="Registrar Compra" hideActions onClose={() => setPurchaseModal(m => ({ ...m, visible: false }))}>
+      <Modal visible={purchaseModal.state.visible} title="Registrar Compra" hideActions onClose={purchaseModal.close}>
         <div className="form-row">
           <div className="form-group">
             <label>Data da compra (opcional)</label>
@@ -235,7 +212,7 @@ export function Stock() {
           </div>
         </div>
         <p className="section-title" style={{ marginBottom: 8 }}>Itens comprados</p>
-        <span className="field-error">{purchaseModal.errors.items?.[0] ?? ''}</span>
+        <span className="field-error">{purchaseModal.state.errors.items?.[0] ?? ''}</span>
         <div className="purchase-row-header"><span>Ingrediente</span><span /></div>
         <div className="purchase-fields-header"><span>Tam. pacote</span><span>Nº pacotes</span><span>Total pago</span></div>
         <div className="ingredient-rows">
@@ -268,17 +245,19 @@ export function Stock() {
         <button type="button" className="btn btn-secondary btn-sm mt-8" onClick={() => setPurchaseRows(r => [...r, { ingredient_id: '', package_size: '', num_packages: '', total_price: '' }])}>+ Adicionar Item</button>
         {purchaseRows.some(r => r.total_price) && <div className="purchase-subtotal">Total: <strong>R$ {fmtCurrency(purchaseTotalValue)}</strong></div>}
         <div className="modal-actions">
-          <button type="button" className="btn btn-secondary" onClick={() => setPurchaseModal(m => ({ ...m, visible: false }))}>Cancelar</button>
-          <button type="button" className="btn btn-primary" disabled={purchaseModal.loading} onClick={savePurchase}>{purchaseModal.loading ? 'Salvando...' : 'Registrar'}</button>
+          <button type="button" className="btn btn-secondary" onClick={purchaseModal.close}>Cancelar</button>
+          <button type="button" className="btn btn-primary" disabled={purchaseModal.state.loading} onClick={savePurchase}>
+            {purchaseModal.state.loading ? 'Salvando...' : 'Registrar'}
+          </button>
         </div>
       </Modal>
 
-      <Modal visible={adjustModal.visible} title={`Ajustar Estoque — ${adjustModal.ingredient?.name ?? ''}`} loading={adjustModal.loading} submitText="Salvar"
-        onClose={() => setAdjustModal(m => ({ ...m, visible: false }))} onSubmit={saveAdjust}>
-        <FormField label={`Quantidade em estoque (${adjustModal.ingredient?.unit})`} error={adjustModal.errors.stock_quantity?.[0]}>
+      <Modal visible={adjustModal.state.visible} title={`Ajustar Estoque — ${adjustModal.state.ingredient?.name ?? ''}`} loading={adjustModal.state.loading} submitText="Salvar"
+        onClose={adjustModal.close} onSubmit={saveAdjust}>
+        <FormField label={`Quantidade em estoque (${adjustModal.state.ingredient?.unit})`} error={adjustModal.state.errors.stock_quantity?.[0]}>
           <NumericInput value={adjustForm.stock_quantity} onChange={v => setAdjustForm(f => ({ ...f, stock_quantity: v }))} />
         </FormField>
-        <FormField label={`Estoque mínimo (${adjustModal.ingredient?.unit}) — opcional`} error={adjustModal.errors.min_stock?.[0]}>
+        <FormField label={`Estoque mínimo (${adjustModal.state.ingredient?.unit}) — opcional`} error={adjustModal.state.errors.min_stock?.[0]}>
           <NumericInput value={adjustForm.min_stock} placeholder="Ex: 500" onChange={v => setAdjustForm(f => ({ ...f, min_stock: v }))} />
         </FormField>
         <div className="form-group">

@@ -4,6 +4,9 @@ import { AppHeader } from '../components/AppHeader'
 import { Modal } from '../components/Modal'
 import { FormField } from '../components/ui/FormField'
 import { NumericInput } from '../components/ui/NumericInput'
+import { ProfitMultiplierField } from '../components/ui/ProfitMultiplierField'
+import { InvisibleCostField } from '../components/ui/InvisibleCostField'
+import { TypeBadge } from '../components/ui/TypeBadge'
 import { ConfirmModal } from '../components/ui/ConfirmModal'
 import { AsyncState } from '../components/ui/AsyncState'
 import { IngredientAutocomplete } from '../components/IngredientAutocomplete'
@@ -12,6 +15,9 @@ import type { Recipe, RecipeIngredient } from '../services/RecipeService'
 import { IngredientService } from '../services/IngredientService'
 import type { Ingredient } from '../services/IngredientService'
 import { useAppStore } from '../store/useAppStore'
+import { useModal } from '../hooks/useModal'
+import { useConfirmAction } from '../hooks/useConfirmAction'
+import { handleApiError } from '../utils/apiError'
 import { fmtCurrency, fmtQuantity } from '../utils/formatters'
 import { parseDecimal } from '../utils/inputs'
 
@@ -26,25 +32,26 @@ export function RecipeDetail() {
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(false)
 
-  const [editModal, setEditModal] = useState({ visible: false, loading: false, errors: {} as Record<string, string[]> })
+  const editModal = useModal({ visible: false, loading: false, errors: {} as Record<string, string[]> })
   const [editForm, setEditForm] = useState({ name: '', description: '', yield: '', yield_unit: '', invisible_cost_pct: '', profit_multiplier: 3 })
 
-  const [addModal, setAddModal] = useState({ visible: false, loading: false, errors: {} as Record<string, string[]>, available: [] as Ingredient[] })
+  const addModal = useModal({ visible: false, loading: false, errors: {} as Record<string, string[]>, available: [] as Ingredient[] })
   const [addForm, setAddForm] = useState({ ingredient_id: '', quantity: '' })
 
-  const [editQtyModal, setEditQtyModal] = useState({ visible: false, loading: false, errors: {} as Record<string, string[]>, ingredient: null as RecipeIngredient | null })
+  const editQtyModal = useModal({ visible: false, loading: false, errors: {} as Record<string, string[]>, ingredient: null as RecipeIngredient | null })
   const [editQtyForm, setEditQtyForm] = useState({ quantity: '' })
 
-  const [produceModal, setProduceModal] = useState({ visible: false, loading: false, errors: {} as Record<string, string[]>, hasStockWarning: false })
+  const produceModal = useModal({ visible: false, loading: false, errors: {} as Record<string, string[]>, hasStockWarning: false })
   const [produceTimes, setProduceTimes] = useState(1)
 
-  const [confirm, setConfirm] = useState({ visible: false, loading: false, item: null as RecipeIngredient | null })
-
-  const editModalMargin = (() => {
-    const m = Number(editForm.profit_multiplier)
-    if (!m || m <= 0) return '0,0'
-    return ((1 - 1 / m) * 100).toFixed(1).replace('.', ',')
-  })()
+  const removeIngredient = useConfirmAction<RecipeIngredient>({
+    onConfirm: async (item) => {
+      const updated = await RecipeService.update(id!, { ingredients: buildIngredientsPayload({ removeId: item.id }) })
+      setRecipe(updated as RecipeExt)
+      success('Ingrediente removido.')
+    },
+    onError: error,
+  })
 
   async function fetchRecipe() {
     setLoading(true); setLoadError(false)
@@ -71,11 +78,11 @@ export function RecipeDetail() {
       invisible_cost_pct: String(recipe.invisible_cost_pct ?? 25),
       profit_multiplier: Number(recipe.profit_multiplier ?? 3),
     })
-    setEditModal({ visible: true, loading: false, errors: {} })
+    editModal.open()
   }
 
   async function saveRecipe() {
-    setEditModal(m => ({ ...m, loading: true, errors: {} }))
+    editModal.startSubmit()
     try {
       const updated = await RecipeService.update(id!, {
         name: editForm.name.trim(),
@@ -87,13 +94,11 @@ export function RecipeDetail() {
       })
       setRecipe(updated as RecipeExt)
       success('Receita atualizada com sucesso.')
-      setEditModal(m => ({ ...m, visible: false }))
-    } catch (err: unknown) {
-      const e = err as { errors?: Record<string, string[]>; message?: string }
-      setEditModal(m => ({ ...m, errors: e.errors ?? {} }))
-      if (!e.errors) error(e.message ?? 'Erro ao salvar receita.')
+      editModal.close()
+    } catch (err) {
+      handleApiError(err, editModal.setErrors, error, 'Erro ao salvar receita.')
     } finally {
-      setEditModal(m => ({ ...m, loading: false }))
+      editModal.setLoading(false)
     }
   }
 
@@ -107,52 +112,37 @@ export function RecipeDetail() {
 
     if (!available.length) { error('Todos os ingredientes já foram adicionados a esta receita.'); return }
 
-    setAddModal({ visible: true, loading: false, errors: {}, available })
+    addModal.open({ available })
     setAddForm({ ingredient_id: '', quantity: '' })
   }
 
   async function addIngredient() {
-    if (!addForm.ingredient_id) { setAddModal(m => ({ ...m, errors: { ingredient_id: ['Selecione um ingrediente.'] } })); return }
-    if (!addForm.quantity || parseDecimal(addForm.quantity) <= 0) { setAddModal(m => ({ ...m, errors: { quantity: ['A quantidade deve ser maior que zero.'] } })); return }
+    if (!addForm.ingredient_id) { addModal.setErrors({ ingredient_id: ['Selecione um ingrediente.'] }); return }
+    if (!addForm.quantity || parseDecimal(addForm.quantity) <= 0) { addModal.setErrors({ quantity: ['A quantidade deve ser maior que zero.'] }); return }
 
-    setAddModal(m => ({ ...m, loading: true, errors: {} }))
+    addModal.startSubmit()
     try {
       const updated = await RecipeService.update(id!, { ingredients: buildIngredientsPayload({ add: { ingredient_id: addForm.ingredient_id, quantity: parseDecimal(addForm.quantity) } }) })
       setRecipe(updated as RecipeExt)
       success('Ingrediente adicionado.')
-      setAddModal(m => ({ ...m, visible: false }))
-    } catch (err: unknown) {
-      if (!(err as { errors?: unknown }).errors) error((err as { message?: string }).message ?? 'Erro ao adicionar ingrediente.')
+      addModal.close()
+    } catch (err) {
+      handleApiError(err, addModal.setErrors, error, 'Erro ao adicionar ingrediente.')
     } finally {
-      setAddModal(m => ({ ...m, loading: false }))
-    }
-  }
-
-  async function confirmRemove() {
-    if (!confirm.item) return
-    setConfirm(c => ({ ...c, loading: true }))
-    try {
-      const updated = await RecipeService.update(id!, { ingredients: buildIngredientsPayload({ removeId: confirm.item.id }) })
-      setRecipe(updated as RecipeExt)
-      success('Ingrediente removido.')
-      setConfirm(c => ({ ...c, visible: false }))
-    } catch (err: unknown) {
-      error((err as { message?: string }).message ?? 'Erro ao remover ingrediente.')
-    } finally {
-      setConfirm(c => ({ ...c, loading: false }))
+      addModal.setLoading(false)
     }
   }
 
   function openEditQty(ingredient: RecipeIngredient) {
-    setEditQtyModal({ visible: true, loading: false, errors: {}, ingredient })
+    editQtyModal.open({ ingredient })
     setEditQtyForm({ quantity: fmtQuantity(ingredient.quantity) })
   }
 
   async function saveIngredientQty() {
-    if (!editQtyModal.ingredient) return
-    setEditQtyModal(m => ({ ...m, loading: true, errors: {} }))
+    if (!editQtyModal.state.ingredient) return
+    editQtyModal.startSubmit()
     try {
-      const targetId = editQtyModal.ingredient.id
+      const targetId = editQtyModal.state.ingredient.id
       const newQty = parseDecimal(editQtyForm.quantity)
       const ingredients = (recipe?.ingredients as RecipeIngredient[] ?? []).map(i => ({
         ingredient_id: i.ingredient_id ?? i.id,
@@ -161,43 +151,42 @@ export function RecipeDetail() {
       const updated = await RecipeService.update(id!, { ingredients })
       setRecipe(updated as RecipeExt)
       success('Quantidade atualizada.')
-      setEditQtyModal(m => ({ ...m, visible: false }))
-    } catch (err: unknown) {
-      const e = err as { errors?: Record<string, string[]>; message?: string }
-      setEditQtyModal(m => ({ ...m, errors: e.errors ?? {} }))
-      if (!e.errors) error(e.message ?? 'Erro ao atualizar quantidade.')
+      editQtyModal.close()
+    } catch (err) {
+      handleApiError(err, editQtyModal.setErrors, error, 'Erro ao atualizar quantidade.')
     } finally {
-      setEditQtyModal(m => ({ ...m, loading: false }))
+      editQtyModal.setLoading(false)
     }
   }
 
   async function produce() {
-    setProduceModal(m => ({ ...m, loading: true, errors: {} }))
+    produceModal.startSubmit()
     try {
       await RecipeService.produce(id!, { times: Number(produceTimes) })
       success('Produção registrada com sucesso.')
-      setProduceModal(m => ({ ...m, visible: false, hasStockWarning: false }))
+      produceModal.close()
       fetchRecipe()
     } catch (err: unknown) {
       const e = err as { errors?: Record<string, string[]>; message?: string }
-      setProduceModal(m => ({ ...m, errors: e.errors ?? {}, hasStockWarning: !!(e.errors as Record<string, unknown>)?.stock }))
+      produceModal.setErrors(e.errors ?? {})
+      produceModal.patch({ hasStockWarning: !!(e.errors as Record<string, unknown>)?.stock })
       if (!e.errors) error(e.message ?? 'Erro ao registrar produção.')
     } finally {
-      setProduceModal(m => ({ ...m, loading: false }))
+      produceModal.setLoading(false)
     }
   }
 
   async function forceProduceAnyway() {
-    setProduceModal(m => ({ ...m, loading: true }))
+    produceModal.setLoading(true)
     try {
       await RecipeService.produce(id!, { times: Number(produceTimes), force: true })
       success('Produção registrada com sucesso.')
-      setProduceModal(m => ({ ...m, visible: false, hasStockWarning: false }))
+      produceModal.close()
       fetchRecipe()
     } catch (err: unknown) {
       error((err as { message?: string }).message ?? 'Erro ao registrar produção.')
     } finally {
-      setProduceModal(m => ({ ...m, loading: false }))
+      produceModal.setLoading(false)
     }
   }
 
@@ -221,7 +210,7 @@ export function RecipeDetail() {
                   </div>
                   <div className="recipe-header-actions">
                     <button className="btn btn-secondary" onClick={openEdit}>Editar</button>
-                    <button className="btn btn-primary" onClick={() => { setProduceModal({ visible: true, loading: false, errors: {}, hasStockWarning: false }); setProduceTimes(1) }}>Produzir</button>
+                    <button className="btn btn-primary" onClick={() => { produceModal.open({ hasStockWarning: false }); setProduceTimes(1) }}>Produzir</button>
                   </div>
                 </div>
 
@@ -257,14 +246,14 @@ export function RecipeDetail() {
                         {ingredients.map(i => (
                           <tr key={i.id}>
                             <td>{i.name}</td>
-                            <td><span className={i.type === 'packaging' ? 'badge badge-packaging' : 'badge badge-ingredient'}>{i.type === 'packaging' ? 'Embalagem' : 'Ingrediente'}</span></td>
+                            <td><TypeBadge type={i.type} /></td>
                             <td>{i.unit}</td>
                             <td>{fmtQuantity(i.quantity)}</td>
                             <td>R$ {fmtCurrency(i.subtotal)}</td>
                             <td>
                               <div className="td-actions">
                                 <button className="btn btn-secondary btn-sm" onClick={() => openEditQty(i)}>Editar</button>
-                                <button className="btn btn-danger btn-sm" onClick={() => setConfirm({ visible: true, loading: false, item: i })}>Remover</button>
+                                <button className="btn btn-danger btn-sm" onClick={() => removeIngredient.open(i)}>Remover</button>
                               </div>
                             </td>
                           </tr>
@@ -279,78 +268,79 @@ export function RecipeDetail() {
         </div>
       </main>
 
-      <Modal visible={editModal.visible} title="Editar Receita" loading={editModal.loading} onClose={() => setEditModal(m => ({ ...m, visible: false }))} onSubmit={saveRecipe}>
-        <FormField label="Nome" error={editModal.errors.name?.[0]}>
+      <Modal visible={editModal.state.visible} title="Editar Receita" loading={editModal.state.loading} onClose={editModal.close} onSubmit={saveRecipe}>
+        <FormField label="Nome" error={editModal.state.errors.name?.[0]}>
           <input type="text" value={editForm.name} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} />
         </FormField>
         <div className="form-group">
           <label>Descrição (opcional)</label>
           <textarea rows={3} value={editForm.description} onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))} />
         </div>
-        <FormField label="Rendimento" error={editModal.errors.yield?.[0]}>
+        <FormField label="Rendimento" error={editModal.state.errors.yield?.[0]}>
           <NumericInput value={editForm.yield} onChange={v => setEditForm(f => ({ ...f, yield: v }))} />
         </FormField>
-        <FormField label="Unidade" error={editModal.errors.yield_unit?.[0]}>
+        <FormField label="Unidade" error={editModal.state.errors.yield_unit?.[0]}>
           <input type="text" value={editForm.yield_unit} onChange={e => setEditForm(f => ({ ...f, yield_unit: e.target.value }))} />
         </FormField>
-        <FormField label="Custos Invisíveis (%)" error={editModal.errors.invisible_cost_pct?.[0]}>
-          <NumericInput value={editForm.invisible_cost_pct} placeholder="25" onChange={v => setEditForm(f => ({ ...f, invisible_cost_pct: v }))} />
-        </FormField>
-        <FormField label="Multiplicador de Lucro" error={editModal.errors.profit_multiplier?.[0]}>
-          <div className="multiplier-control">
-            <input type="range" min="1" max="6" step="0.25" value={editForm.profit_multiplier} onChange={e => setEditForm(f => ({ ...f, profit_multiplier: Number(e.target.value) }))} />
-            <NumericInput className="multiplier-input" value={editForm.profit_multiplier} onChange={v => setEditForm(f => ({ ...f, profit_multiplier: Number(v) }))} />
-            <span className="multiplier-suffix">x</span>
-          </div>
-          <p className="multiplier-hint">Margem de lucro: {editModalMargin}%</p>
-        </FormField>
+        <InvisibleCostField
+          value={editForm.invisible_cost_pct}
+          onChange={v => setEditForm(f => ({ ...f, invisible_cost_pct: v }))}
+          error={editModal.state.errors.invisible_cost_pct?.[0]}
+        />
+        <ProfitMultiplierField
+          value={editForm.profit_multiplier}
+          onChange={v => setEditForm(f => ({ ...f, profit_multiplier: v }))}
+          error={editModal.state.errors.profit_multiplier?.[0]}
+        />
       </Modal>
 
-      <Modal visible={addModal.visible} title="Adicionar Ingrediente" loading={addModal.loading} onClose={() => setAddModal(m => ({ ...m, visible: false }))} onSubmit={addIngredient}>
-        <FormField label="Ingrediente" error={addModal.errors.ingredient_id?.[0]}>
-          <IngredientAutocomplete value={addForm.ingredient_id} options={addModal.available} onChange={id => setAddForm(f => ({ ...f, ingredient_id: id }))} />
+      <Modal visible={addModal.state.visible} title="Adicionar Ingrediente" loading={addModal.state.loading} onClose={addModal.close} onSubmit={addIngredient}>
+        <FormField label="Ingrediente" error={addModal.state.errors.ingredient_id?.[0]}>
+          <IngredientAutocomplete value={addForm.ingredient_id} options={addModal.state.available} onChange={id => setAddForm(f => ({ ...f, ingredient_id: id }))} />
         </FormField>
-        <FormField label="Quantidade" error={addModal.errors.quantity?.[0]}>
+        <FormField label="Quantidade" error={addModal.state.errors.quantity?.[0]}>
           <NumericInput value={addForm.quantity} placeholder="0.000" onChange={v => setAddForm(f => ({ ...f, quantity: v }))} />
         </FormField>
       </Modal>
 
-      <Modal visible={editQtyModal.visible} title="Editar Quantidade" loading={editQtyModal.loading} submitText="Salvar" onClose={() => setEditQtyModal(m => ({ ...m, visible: false }))} onSubmit={saveIngredientQty}>
-        <p className="step-hint">{editQtyModal.ingredient?.name} ({editQtyModal.ingredient?.unit})</p>
-        <FormField label="Quantidade" error={editQtyModal.errors['ingredients.0.quantity']?.[0]}>
+      <Modal visible={editQtyModal.state.visible} title="Editar Quantidade" loading={editQtyModal.state.loading} submitText="Salvar" onClose={editQtyModal.close} onSubmit={saveIngredientQty}>
+        <p className="step-hint">{editQtyModal.state.ingredient?.name} ({editQtyModal.state.ingredient?.unit})</p>
+        <FormField label="Quantidade" error={editQtyModal.state.errors['ingredients.0.quantity']?.[0]}>
           <NumericInput value={editQtyForm.quantity} onChange={v => setEditQtyForm({ quantity: v })} />
         </FormField>
       </Modal>
 
-      <Modal visible={produceModal.visible} title="Registrar Produção" loading={produceModal.loading} hideActions={produceModal.hasStockWarning} submitText="Produzir" onClose={() => setProduceModal(m => ({ ...m, visible: false }))} onSubmit={produce}>
+      <Modal visible={produceModal.state.visible} title="Registrar Produção" loading={produceModal.state.loading} hideActions={produceModal.state.hasStockWarning} submitText="Produzir" onClose={produceModal.close} onSubmit={produce}>
         <p className="step-hint">O estoque dos ingredientes será deduzido conforme as quantidades da receita.</p>
         <div className="form-group">
           <label>Quantas vezes produzir?</label>
           <input type="number" min="1" step="1" value={produceTimes} onChange={e => setProduceTimes(Number(e.target.value))} />
         </div>
-        {produceModal.hasStockWarning && (
+        {produceModal.state.hasStockWarning && (
           <div className="produce-warning">
             <p className="produce-warning-title">Estoque insuficiente para alguns ingredientes:</p>
             <ul className="produce-error-list">
-              {((produceModal.errors as Record<string, string[]>).stock ?? []).map((msg: string) => <li key={msg}>{msg}</li>)}
+              {((produceModal.state.errors as Record<string, string[]>).stock ?? []).map((msg: string) => <li key={msg}>{msg}</li>)}
             </ul>
             <p className="produce-warning-hint">Os ingredientes com falta de estoque serão zerados. Deseja continuar mesmo assim?</p>
             <div className="modal-actions">
-              <button type="button" className="btn btn-secondary" onClick={() => setProduceModal(m => ({ ...m, visible: false }))}>Cancelar</button>
-              <button type="button" className="btn btn-primary" disabled={produceModal.loading} onClick={forceProduceAnyway}>{produceModal.loading ? 'Salvando...' : 'Produzir mesmo assim'}</button>
+              <button type="button" className="btn btn-secondary" onClick={produceModal.close}>Cancelar</button>
+              <button type="button" className="btn btn-primary" disabled={produceModal.state.loading} onClick={forceProduceAnyway}>
+                {produceModal.state.loading ? 'Salvando...' : 'Produzir mesmo assim'}
+              </button>
             </div>
           </div>
         )}
       </Modal>
 
       <ConfirmModal
-        visible={confirm.visible}
+        visible={removeIngredient.confirm.visible}
         title="Remover Ingrediente"
-        message={<>Remover <strong>{confirm.item?.name}</strong> desta receita?</>}
-        loading={confirm.loading}
+        message={<>Remover <strong>{removeIngredient.confirm.item?.name}</strong> desta receita?</>}
+        loading={removeIngredient.confirm.loading}
         confirmText="Remover"
-        onConfirm={confirmRemove}
-        onClose={() => setConfirm(c => ({ ...c, visible: false }))}
+        onConfirm={removeIngredient.execute}
+        onClose={removeIngredient.close}
       />
     </div>
   )

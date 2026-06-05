@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState } from 'react'
 import { AppHeader } from '../components/AppHeader'
 import { Modal } from '../components/Modal'
 import { PageHeader } from '../components/ui/PageHeader'
@@ -9,9 +9,14 @@ import { ConfirmModal } from '../components/ui/ConfirmModal'
 import { FormField } from '../components/ui/FormField'
 import { NumericInput } from '../components/ui/NumericInput'
 import { TypeSelectCards } from '../components/ui/TypeSelectCards'
+import { TypeBadge } from '../components/ui/TypeBadge'
 import { IngredientService } from '../services/IngredientService'
 import type { Ingredient } from '../services/IngredientService'
 import { useAppStore } from '../store/useAppStore'
+import { usePaginatedList } from '../hooks/usePaginatedList'
+import { useModal } from '../hooks/useModal'
+import { useConfirmAction } from '../hooks/useConfirmAction'
+import { handleApiError } from '../utils/apiError'
 import { fmtCurrency, fmtQuantity } from '../utils/formatters'
 import { parseDecimal } from '../utils/inputs'
 
@@ -25,56 +30,44 @@ interface ModalForm {
   package_size: string; last_price: string; min_stock: string
 }
 
+type ModalStep = 'type-select' | 'form'
+
 const emptyForm = (): ModalForm => ({ name: '', type: '', unit: '', package_size: '', last_price: '', min_stock: '' })
 
 export function Ingredients() {
   const { success, error } = useAppStore()
 
-  const [items, setItems] = useState<Ingredient[]>([])
-  const [currentPage, setCurrentPage] = useState(1)
-  const [hasMore, setHasMore] = useState(false)
-  const [loading, setLoading] = useState(true)
-  const [loadingMore, setLoadingMore] = useState(false)
-  const [loadError, setLoadError] = useState(false)
-  const [search, setSearch] = useState('')
-  const searchRef = useRef('')
+  const { items, hasMore, loading, loadingMore, loadError, search, handleSearch, loadMore, refetch } =
+    usePaginatedList({
+      fetchFn: (page, q) => IngredientService.getPaginated(page, q),
+      onError: error,
+      loadMoreErrorMsg: 'Erro ao carregar mais ingredientes.',
+    })
 
-  const [modal, setModal] = useState({ visible: false, step: 'type-select' as 'type-select' | 'form', editing: null as Ingredient | null, loading: false, errors: {} as Record<string, string[]> })
+  const modal = useModal({
+    visible: false,
+    step: 'type-select' as ModalStep,
+    editing: null as Ingredient | null,
+    loading: false,
+    errors: {} as Record<string, string[]>,
+  })
   const [form, setForm] = useState<ModalForm>(emptyForm())
 
-  const [confirm, setConfirm] = useState({ visible: false, loading: false, item: null as Ingredient | null })
-
-  async function fetchIngredients(q = searchRef.current) {
-    setLoading(true); setLoadError(false); setItems([]); setCurrentPage(1)
-    try {
-      const { items: data, meta } = await IngredientService.getPaginated(1, q.trim())
-      setItems(data); setCurrentPage(meta.current_page); setHasMore(meta.current_page < meta.last_page)
-    } catch { setLoadError(true) }
-    finally { setLoading(false) }
-  }
-
-  async function loadMore() {
-    setLoadingMore(true)
-    try {
-      const { items: data, meta } = await IngredientService.getPaginated(currentPage + 1, searchRef.current.trim())
-      setItems(prev => [...prev, ...data]); setCurrentPage(meta.current_page); setHasMore(meta.current_page < meta.last_page)
-    } catch { error('Erro ao carregar mais ingredientes.') }
-    finally { setLoadingMore(false) }
-  }
-
-  function handleSearch(q: string) {
-    searchRef.current = q; setSearch(q); fetchIngredients(q)
-  }
-
-  useEffect(() => { fetchIngredients() }, [])
+  const deleteIngredient = useConfirmAction<Ingredient>({
+    onConfirm: async (item) => {
+      await IngredientService.delete(item.id)
+      success('Ingrediente excluído.')
+      refetch()
+    },
+    onError: error,
+  })
 
   function openCreate() {
-    setModal({ visible: true, step: 'type-select', editing: null, loading: false, errors: {} })
     setForm(emptyForm())
+    modal.open({ step: 'type-select', editing: null })
   }
 
   function openEdit(ingredient: Ingredient) {
-    setModal({ visible: true, step: 'form', editing: ingredient, loading: false, errors: {} })
     setForm({
       name: ingredient.name, type: ingredient.type, unit: ingredient.unit,
       package_size: String(ingredient.package_size),
@@ -82,10 +75,11 @@ export function Ingredients() {
       min_stock: (ingredient as unknown as Record<string, unknown>).min_stock
         ? fmtQuantity((ingredient as unknown as Record<string, unknown>).min_stock as number) : '',
     })
+    modal.open({ step: 'form', editing: ingredient })
   }
 
   async function save() {
-    setModal(m => ({ ...m, loading: true, errors: {} }))
+    modal.startSubmit()
     try {
       const payload = {
         ...form,
@@ -93,36 +87,19 @@ export function Ingredients() {
         last_price: parseDecimal(form.last_price),
         min_stock: form.min_stock !== '' ? parseDecimal(form.min_stock) : null,
       }
-      if (modal.editing) {
-        await IngredientService.update(modal.editing.id, payload as unknown as Partial<Ingredient>)
+      if (modal.state.editing) {
+        await IngredientService.update(modal.state.editing.id, payload as unknown as Partial<Ingredient>)
         success('Ingrediente atualizado com sucesso.')
       } else {
         await IngredientService.create(payload as unknown as Partial<Ingredient>)
         success('Ingrediente criado com sucesso.')
       }
-      setModal(m => ({ ...m, visible: false }))
-      fetchIngredients()
-    } catch (err: unknown) {
-      const e = err as { errors?: Record<string, string[]>; message?: string }
-      setModal(m => ({ ...m, errors: e.errors ?? {} }))
-      if (!e.errors) error(e.message ?? 'Erro ao salvar ingrediente.')
+      modal.close()
+      refetch()
+    } catch (err) {
+      handleApiError(err, modal.setErrors, error, 'Erro ao salvar ingrediente.')
     } finally {
-      setModal(m => ({ ...m, loading: false }))
-    }
-  }
-
-  async function confirmDelete() {
-    if (!confirm.item) return
-    setConfirm(c => ({ ...c, loading: true }))
-    try {
-      await IngredientService.delete(confirm.item.id)
-      success('Ingrediente excluído.')
-      setConfirm(c => ({ ...c, visible: false }))
-      fetchIngredients()
-    } catch (err: unknown) {
-      error((err as { message?: string }).message ?? 'Erro ao excluir ingrediente.')
-    } finally {
-      setConfirm(c => ({ ...c, loading: false }))
+      modal.setLoading(false)
     }
   }
 
@@ -134,7 +111,7 @@ export function Ingredients() {
           <PageHeader title="Ingredientes" actionLabel="+ Novo Ingrediente" onAction={openCreate} />
           <SearchBar placeholder="Buscar ingrediente..." value={search} onChange={handleSearch} />
 
-          <AsyncState loading={loading} error={loadError ? 'Erro ao carregar ingredientes.' : null}
+          <AsyncState loading={loading} error={loadError || null}
             empty={!items.length} emptyEntityName="ingrediente" emptySearch={search}>
             <div className="table-wrapper">
               <table className="ingredients-table">
@@ -147,14 +124,14 @@ export function Ingredients() {
                   {items.map(i => (
                     <tr key={i.id}>
                       <td>{i.name}</td>
-                      <td><span className={i.type === 'packaging' ? 'badge badge-packaging' : 'badge badge-ingredient'}>{i.type === 'packaging' ? 'Embalagem' : 'Ingrediente'}</span></td>
+                      <td><TypeBadge type={i.type} /></td>
                       <td>{i.unit}</td>
                       <td>{fmtQuantity(i.package_size)} {i.unit}</td>
                       <td>R$ {fmtCurrency(i.package_price)}</td>
                       <td>
                         <div className="td-actions">
                           <button className="btn btn-secondary btn-sm" onClick={() => openEdit(i)}>Editar</button>
-                          <button className="btn btn-danger btn-sm" onClick={() => setConfirm({ visible: true, loading: false, item: i })}>Excluir</button>
+                          <button className="btn btn-danger btn-sm" onClick={() => deleteIngredient.open(i)}>Excluir</button>
                         </div>
                       </td>
                     </tr>
@@ -168,24 +145,27 @@ export function Ingredients() {
       </main>
 
       <Modal
-        visible={modal.visible}
-        title={modal.editing ? 'Editar Ingrediente' : 'Novo Ingrediente'}
-        loading={modal.loading}
-        hideActions={modal.step === 'type-select'}
-        onClose={() => setModal(m => ({ ...m, visible: false }))}
+        visible={modal.state.visible}
+        title={modal.state.editing ? 'Editar Ingrediente' : 'Novo Ingrediente'}
+        loading={modal.state.loading}
+        hideActions={modal.state.step === 'type-select'}
+        onClose={modal.close}
         onSubmit={save}
       >
-        {modal.step === 'type-select' ? (
-          <TypeSelectCards options={TYPE_OPTIONS} onSelect={type => { setForm(f => ({ ...f, type })); setModal(m => ({ ...m, step: 'form' })) }} />
+        {modal.state.step === 'type-select' ? (
+          <TypeSelectCards
+            options={TYPE_OPTIONS}
+            onSelect={type => { setForm(f => ({ ...f, type })); modal.patch({ step: 'form' }) }}
+          />
         ) : (
           <>
-            {!modal.editing && (
-              <button type="button" className="btn-back" onClick={() => setModal(m => ({ ...m, step: 'type-select' }))}>← Voltar</button>
+            {!modal.state.editing && (
+              <button type="button" className="btn-back" onClick={() => modal.patch({ step: 'type-select' })}>← Voltar</button>
             )}
-            <FormField label="Nome" error={modal.errors.name?.[0]}>
+            <FormField label="Nome" error={modal.state.errors.name?.[0]}>
               <input type="text" value={form.name} placeholder="Ex: Farinha de trigo" onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
             </FormField>
-            <FormField label="Unidade" error={modal.errors.unit?.[0]}>
+            <FormField label="Unidade" error={modal.state.errors.unit?.[0]}>
               <select value={form.unit} onChange={e => setForm(f => ({ ...f, unit: e.target.value }))}>
                 <option value="" disabled>Selecionar unidade...</option>
                 <option value="g">g — Grama</option>
@@ -193,13 +173,13 @@ export function Ingredients() {
                 <option value="un">un — Unidade</option>
               </select>
             </FormField>
-            <FormField label="Tamanho do Pacote" error={modal.errors.package_size?.[0]}>
+            <FormField label="Tamanho do Pacote" error={modal.state.errors.package_size?.[0]}>
               <NumericInput value={form.package_size} placeholder="Ex: 500" onChange={v => setForm(f => ({ ...f, package_size: v }))} />
             </FormField>
-            <FormField label="Preço do Pacote (R$)" error={modal.errors.last_price?.[0]}>
+            <FormField label="Preço do Pacote (R$)" error={modal.state.errors.last_price?.[0]}>
               <NumericInput value={form.last_price} placeholder="0.00" onChange={v => setForm(f => ({ ...f, last_price: v }))} />
             </FormField>
-            <FormField label={`Estoque Mínimo (${form.unit || 'unidade'}) — opcional`} error={modal.errors.min_stock?.[0]}>
+            <FormField label={`Estoque Mínimo (${form.unit || 'unidade'}) — opcional`} error={modal.state.errors.min_stock?.[0]}>
               <NumericInput value={form.min_stock} placeholder="Ex: 500" onChange={v => setForm(f => ({ ...f, min_stock: v }))} />
             </FormField>
           </>
@@ -207,13 +187,13 @@ export function Ingredients() {
       </Modal>
 
       <ConfirmModal
-        visible={confirm.visible}
+        visible={deleteIngredient.confirm.visible}
         title="Excluir Ingrediente"
-        message={<>Excluir <strong>{confirm.item?.name}</strong>? Esta ação não pode ser desfeita.</>}
-        loading={confirm.loading}
+        message={<>Excluir <strong>{deleteIngredient.confirm.item?.name}</strong>? Esta ação não pode ser desfeita.</>}
+        loading={deleteIngredient.confirm.loading}
         confirmText="Excluir"
-        onConfirm={confirmDelete}
-        onClose={() => setConfirm(c => ({ ...c, visible: false }))}
+        onConfirm={deleteIngredient.execute}
+        onClose={deleteIngredient.close}
       />
     </div>
   )

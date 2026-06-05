@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AppHeader } from '../components/AppHeader'
 import { Modal } from '../components/Modal'
@@ -9,6 +9,8 @@ import { LoadMoreButton } from '../components/ui/LoadMoreButton'
 import { ConfirmModal } from '../components/ui/ConfirmModal'
 import { FormField } from '../components/ui/FormField'
 import { NumericInput } from '../components/ui/NumericInput'
+import { ProfitMultiplierField } from '../components/ui/ProfitMultiplierField'
+import { InvisibleCostField } from '../components/ui/InvisibleCostField'
 import { IngredientAutocomplete } from '../components/IngredientAutocomplete'
 import { QuickIngredientModal } from '../components/QuickIngredientModal'
 import { RecipeService } from '../services/RecipeService'
@@ -17,6 +19,10 @@ import { IngredientService } from '../services/IngredientService'
 import type { Ingredient } from '../services/IngredientService'
 import { UserService } from '../services/UserService'
 import { useAppStore } from '../store/useAppStore'
+import { usePaginatedList } from '../hooks/usePaginatedList'
+import { useModal } from '../hooks/useModal'
+import { useConfirmAction } from '../hooks/useConfirmAction'
+import { handleApiError } from '../utils/apiError'
 import { fmtCurrency } from '../utils/formatters'
 import { parseDecimal } from '../utils/inputs'
 
@@ -31,52 +37,31 @@ export function Recipes() {
   const navigate = useNavigate()
   const { success, error } = useAppStore()
 
-  const [recipes, setRecipes] = useState<Recipe[]>([])
-  const [currentPage, setCurrentPage] = useState(1)
-  const [hasMore, setHasMore] = useState(false)
-  const [loading, setLoading] = useState(true)
-  const [loadingMore, setLoadingMore] = useState(false)
-  const [loadError, setLoadError] = useState(false)
-  const [search, setSearch] = useState('')
-  const searchRef = useRef('')
+  const { items: recipes, hasMore, loading, loadingMore, loadError, search, handleSearch, loadMore, refetch } =
+    usePaginatedList({
+      fetchFn: (page, q) => RecipeService.getPaginated(page, q),
+      onError: error,
+      loadMoreErrorMsg: 'Erro ao carregar mais receitas.',
+    })
 
   const [availableIngredients, setAvailableIngredients] = useState<Ingredient[]>([])
   const [availablePackaging, setAvailablePackaging] = useState<Ingredient[]>([])
 
-  const [modal, setModal] = useState({ visible: false, step: 'recipe-data' as Step, loading: false, errors: {} as Record<string, string[]> })
+  const modal = useModal({ visible: false, step: 'recipe-data' as Step, loading: false, errors: {} as Record<string, string[]> })
   const [form, setForm] = useState<RecipeForm>({ name: '', description: '', yield: '', yield_unit: '', invisible_cost_pct: 25, profit_multiplier: 3 })
   const [ingredientRows, setIngredientRows] = useState<IngredientRow[]>([{ ingredient_id: '', quantity: '' }])
   const [packagingRows, setPackagingRows] = useState<IngredientRow[]>([])
 
   const [quickCreate, setQuickCreate] = useState({ visible: false, initialName: '', forceType: null as 'ingredient' | 'packaging' | null, targetIndex: -1, targetList: '' as 'ingredients' | 'packaging' })
-  const [confirm, setConfirm] = useState({ visible: false, loading: false, item: null as Recipe | null })
 
-  const modalMargin = (() => {
-    const m = Number(form.profit_multiplier)
-    if (!m || m <= 0) return '0,0'
-    return ((1 - 1 / m) * 100).toFixed(1).replace('.', ',')
-  })()
-
-  async function fetchRecipes(q = searchRef.current) {
-    setLoading(true); setLoadError(false); setRecipes([]); setCurrentPage(1)
-    try {
-      const { items, meta } = await RecipeService.getPaginated(1, q.trim())
-      setRecipes(items); setCurrentPage(meta.current_page); setHasMore(meta.current_page < meta.last_page)
-    } catch { setLoadError(true) }
-    finally { setLoading(false) }
-  }
-
-  async function loadMore() {
-    setLoadingMore(true)
-    try {
-      const { items, meta } = await RecipeService.getPaginated(currentPage + 1, searchRef.current.trim())
-      setRecipes(prev => [...prev, ...items]); setCurrentPage(meta.current_page); setHasMore(meta.current_page < meta.last_page)
-    } catch { error('Erro ao carregar mais receitas.') }
-    finally { setLoadingMore(false) }
-  }
-
-  function handleSearch(q: string) { searchRef.current = q; setSearch(q); fetchRecipes(q) }
-  useEffect(() => { fetchRecipes() }, [])
+  const deleteRecipe = useConfirmAction<Recipe>({
+    onConfirm: async (item) => {
+      await RecipeService.delete(item.id)
+      success('Receita excluída.')
+      refetch()
+    },
+    onError: error,
+  })
 
   async function openCreateModal() {
     try {
@@ -87,24 +72,24 @@ export function Recipes() {
     } catch { error('Erro ao carregar dados.'); return }
     setIngredientRows([{ ingredient_id: '', quantity: '' }])
     setPackagingRows([])
-    setModal({ visible: true, step: 'recipe-data', loading: false, errors: {} })
+    modal.open({ step: 'recipe-data' })
   }
 
   function nextStep() {
-    if (modal.step === 'recipe-data') {
+    if (modal.state.step === 'recipe-data') {
       const errors: Record<string, string[]> = {}
       if (!form.name.trim()) errors.name = ['O nome é obrigatório.']
       if (!form.yield) errors.yield = ['O rendimento é obrigatório.']
       if (!form.yield_unit.trim()) errors.yield_unit = ['A unidade é obrigatória.']
-      if (Object.keys(errors).length) { setModal(m => ({ ...m, errors })); return }
-      setModal(m => ({ ...m, step: 'ingredients', errors: {} }))
-    } else if (modal.step === 'ingredients') {
-      setModal(m => ({ ...m, step: 'packaging' }))
+      if (Object.keys(errors).length) { modal.setErrors(errors); return }
+      modal.patch({ step: 'ingredients', errors: {} })
+    } else if (modal.state.step === 'ingredients') {
+      modal.patch({ step: 'packaging' })
     }
   }
 
   function prevStep() {
-    setModal(m => ({ ...m, step: m.step === 'packaging' ? 'ingredients' : 'recipe-data' }))
+    modal.patch({ step: modal.state.step === 'packaging' ? 'ingredients' : 'recipe-data' })
   }
 
   function updateRow(list: 'ingredients' | 'packaging', index: number, field: keyof IngredientRow, value: string) {
@@ -118,7 +103,7 @@ export function Recipes() {
   }
 
   async function saveRecipe() {
-    setModal(m => ({ ...m, loading: true, errors: {} }))
+    modal.startSubmit()
     const ingredients = [...ingredientRows, ...packagingRows]
       .filter(r => r.ingredient_id && r.quantity)
       .map(r => ({ ingredient_id: r.ingredient_id, quantity: parseDecimal(r.quantity) }))
@@ -133,14 +118,12 @@ export function Recipes() {
         ingredients,
       })
       success('Receita criada com sucesso.')
-      setModal(m => ({ ...m, visible: false }))
-      fetchRecipes()
-    } catch (err: unknown) {
-      const e = err as { errors?: Record<string, string[]>; message?: string }
-      setModal(m => ({ ...m, errors: e.errors ?? {} }))
-      if (!e.errors) error(e.message ?? 'Erro ao salvar receita.')
+      modal.close()
+      refetch()
+    } catch (err) {
+      handleApiError(err, modal.setErrors, error, 'Erro ao salvar receita.')
     } finally {
-      setModal(m => ({ ...m, loading: false }))
+      modal.setLoading(false)
     }
   }
 
@@ -155,22 +138,11 @@ export function Recipes() {
     setQuickCreate(q => ({ ...q, visible: false }))
   }
 
-  async function confirmDelete() {
-    if (!confirm.item) return
-    setConfirm(c => ({ ...c, loading: true }))
-    try {
-      await RecipeService.delete(confirm.item.id)
-      success('Receita excluída.')
-      setConfirm(c => ({ ...c, visible: false }))
-      fetchRecipes()
-    } catch (err: unknown) {
-      error((err as { message?: string }).message ?? 'Erro ao excluir receita.')
-    } finally {
-      setConfirm(c => ({ ...c, loading: false }))
-    }
-  }
-
-  const modalTitle = modal.step === 'recipe-data' ? 'Nova Receita — Dados' : modal.step === 'ingredients' ? 'Nova Receita — Ingredientes' : 'Nova Receita — Embalagens'
+  const modalTitle = modal.state.step === 'recipe-data'
+    ? 'Nova Receita — Dados'
+    : modal.state.step === 'ingredients'
+      ? 'Nova Receita — Ingredientes'
+      : 'Nova Receita — Embalagens'
 
   function renderIngredientRows(list: 'ingredients' | 'packaging', rows: IngredientRow[], options: Ingredient[]) {
     return (
@@ -200,7 +172,7 @@ export function Recipes() {
           <PageHeader title="Receitas" actionLabel="+ Nova Receita" onAction={openCreateModal} />
           <SearchBar placeholder="Buscar receita..." value={search} onChange={handleSearch} />
 
-          <AsyncState loading={loading} error={loadError ? 'Erro ao carregar receitas.' : null}
+          <AsyncState loading={loading} error={loadError || null}
             empty={!recipes.length} emptyEntityName="receita" emptySearch={search}>
             <>
               {recipes.map(r => (
@@ -217,7 +189,7 @@ export function Recipes() {
                   </div>
                   <div className="recipe-actions">
                     <button className="btn btn-secondary btn-sm" onClick={() => navigate(`/recipes/${r.id}`)}>Ver</button>
-                    <button className="btn btn-danger btn-sm" onClick={() => setConfirm({ visible: true, loading: false, item: r })}>Excluir</button>
+                    <button className="btn btn-danger btn-sm" onClick={() => deleteRecipe.open(r)}>Excluir</button>
                   </div>
                 </div>
               ))}
@@ -227,10 +199,10 @@ export function Recipes() {
         </div>
       </main>
 
-      <Modal visible={modal.visible} title={modalTitle} hideActions onClose={() => setModal(m => ({ ...m, visible: false }))}>
-        {modal.step === 'recipe-data' && (
+      <Modal visible={modal.state.visible} title={modalTitle} hideActions onClose={modal.close}>
+        {modal.state.step === 'recipe-data' && (
           <>
-            <FormField label="Nome da Receita" error={modal.errors.name?.[0]}>
+            <FormField label="Nome da Receita" error={modal.state.errors.name?.[0]}>
               <input type="text" value={form.name} placeholder="Ex: Bolo de chocolate" onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
             </FormField>
             <div className="form-group">
@@ -238,34 +210,33 @@ export function Recipes() {
               <textarea rows={2} value={form.description} placeholder="Descreva a receita..." onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
             </div>
             <div className="form-row">
-              <FormField label="Rendimento" error={modal.errors.yield?.[0]}>
+              <FormField label="Rendimento" error={modal.state.errors.yield?.[0]}>
                 <NumericInput value={form.yield} placeholder="10" onChange={v => setForm(f => ({ ...f, yield: v }))} />
               </FormField>
-              <FormField label="Unidade" error={modal.errors.yield_unit?.[0]}>
+              <FormField label="Unidade" error={modal.state.errors.yield_unit?.[0]}>
                 <input type="text" value={form.yield_unit} placeholder="porções" onChange={e => setForm(f => ({ ...f, yield_unit: e.target.value }))} />
               </FormField>
             </div>
-            <FormField label="Custos Invisíveis (%)" error={modal.errors.invisible_cost_pct?.[0]}>
-              <NumericInput value={form.invisible_cost_pct} placeholder="25" onChange={v => setForm(f => ({ ...f, invisible_cost_pct: Number(v) }))} />
-            </FormField>
-            <FormField label="Multiplicador de Lucro" error={modal.errors.profit_multiplier?.[0]}>
-              <div className="multiplier-control">
-                <input type="range" min="1" max="6" step="0.25" value={form.profit_multiplier} onChange={e => setForm(f => ({ ...f, profit_multiplier: Number(e.target.value) }))} />
-                <NumericInput className="multiplier-input" value={form.profit_multiplier} onChange={v => setForm(f => ({ ...f, profit_multiplier: Number(v) }))} />
-                <span className="multiplier-suffix">x</span>
-              </div>
-              <p className="multiplier-hint">Margem de lucro: {modalMargin}%</p>
-            </FormField>
+            <InvisibleCostField
+              value={form.invisible_cost_pct}
+              onChange={v => setForm(f => ({ ...f, invisible_cost_pct: Number(v) }))}
+              error={modal.state.errors.invisible_cost_pct?.[0]}
+            />
+            <ProfitMultiplierField
+              value={form.profit_multiplier}
+              onChange={v => setForm(f => ({ ...f, profit_multiplier: v }))}
+              error={modal.state.errors.profit_multiplier?.[0]}
+            />
             <div className="modal-actions">
-              <button type="button" className="btn btn-secondary" onClick={() => setModal(m => ({ ...m, visible: false }))}>Cancelar</button>
+              <button type="button" className="btn btn-secondary" onClick={modal.close}>Cancelar</button>
               <button type="button" className="btn btn-primary" onClick={nextStep}>Próximo →</button>
             </div>
           </>
         )}
-        {modal.step === 'ingredients' && (
+        {modal.state.step === 'ingredients' && (
           <>
             <p className="step-hint">Adicione os ingredientes utilizados na receita. Embalagens serão adicionadas na próxima etapa.</p>
-            <span className="field-error">{modal.errors.ingredients?.[0] ?? ''}</span>
+            <span className="field-error">{modal.state.errors.ingredients?.[0] ?? ''}</span>
             {renderIngredientRows('ingredients', ingredientRows, availableIngredients)}
             <button type="button" className="btn btn-secondary btn-sm mt-8" onClick={() => setIngredientRows(r => [...r, { ingredient_id: '', quantity: '' }])}>+ Adicionar Ingrediente</button>
             <div className="modal-actions">
@@ -274,14 +245,16 @@ export function Recipes() {
             </div>
           </>
         )}
-        {modal.step === 'packaging' && (
+        {modal.state.step === 'packaging' && (
           <>
             <p className="step-hint">Adicione as embalagens utilizadas na receita (opcional).</p>
             {renderIngredientRows('packaging', packagingRows, availablePackaging)}
             <button type="button" className="btn btn-secondary btn-sm mt-8" onClick={() => setPackagingRows(r => [...r, { ingredient_id: '', quantity: '' }])}>+ Adicionar Embalagem</button>
             <div className="modal-actions">
               <button type="button" className="btn btn-secondary" onClick={prevStep}>← Voltar</button>
-              <button type="button" className="btn btn-primary" disabled={modal.loading} onClick={saveRecipe}>{modal.loading ? 'Salvando...' : 'Salvar'}</button>
+              <button type="button" className="btn btn-primary" disabled={modal.state.loading} onClick={saveRecipe}>
+                {modal.state.loading ? 'Salvando...' : 'Salvar'}
+              </button>
             </div>
           </>
         )}
@@ -296,13 +269,13 @@ export function Recipes() {
       />
 
       <ConfirmModal
-        visible={confirm.visible}
+        visible={deleteRecipe.confirm.visible}
         title="Excluir Receita"
-        message={<>Excluir <strong>{confirm.item?.name}</strong>? Esta ação não pode ser desfeita.</>}
-        loading={confirm.loading}
+        message={<>Excluir <strong>{deleteRecipe.confirm.item?.name}</strong>? Esta ação não pode ser desfeita.</>}
+        loading={deleteRecipe.confirm.loading}
         confirmText="Excluir"
-        onConfirm={confirmDelete}
-        onClose={() => setConfirm(c => ({ ...c, visible: false }))}
+        onConfirm={deleteRecipe.execute}
+        onClose={deleteRecipe.close}
       />
     </div>
   )
