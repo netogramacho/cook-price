@@ -1,11 +1,25 @@
 const TOKEN_KEY = 'token'
 const USER_KEY = 'user'
 
+export interface UserPlan {
+  id: string
+  name: 'free' | 'basic' | 'pro'
+  label: string
+  price: string
+  max_recipes: number | null
+  max_ingredients: number | null
+  has_pricing: boolean
+  has_stock: boolean
+  has_stock_history: boolean
+  has_production: boolean
+}
+
 export interface AuthUser {
   id: string
   name: string
   email: string
   email_verified_at: string | null
+  plan: UserPlan
   profit_multiplier?: number
   invisible_cost_pct?: number
   disable_stock_control?: boolean

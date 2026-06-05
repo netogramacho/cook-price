@@ -229,7 +229,7 @@ export function RecipeDetail() {
                   <div className="cost-item"><label>Ingredientes</label><strong>R$ {fmtCurrency(recipe.ingredients_cost)}</strong></div>
                   {Number(recipe.packaging_cost) > 0 && <div className="cost-item"><label>Embalagem</label><strong>R$ {fmtCurrency(recipe.packaging_cost)}</strong></div>}
                   {Number(recipe.invisible_cost_pct) > 0 && <div className="cost-item"><label>Custos Invisíveis ({String(recipe.invisible_cost_pct)}%)</label><strong>R$ {fmtCurrency(recipe.invisible_cost as number)}</strong></div>}
-                  <div className="cost-item"><label>Custo de Produção</label><strong>R$ {fmtCurrency(recipe.production_cost as number)}</strong></div>
+                  {recipe.production_cost != null && <div className="cost-item"><label>Custo de Produção</label><strong>R$ {fmtCurrency(recipe.production_cost as number)}</strong></div>}
                   {Number(recipe.profit_multiplier) > 1 ? (
                     <div className="cost-item cost-item-highlight">
                       <label>Preço Sugerido / {recipe.yield_unit} ({String(recipe.profit_multiplier)}x · margem {String(recipe.profit_margin_pct)}%)</label>

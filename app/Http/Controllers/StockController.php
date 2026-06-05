@@ -10,10 +10,21 @@ class StockController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
+        $user = $request->user()->load('plan');
+
+        if (!$user->plan->has_stock) {
+            return response()->json([
+                'success'    => false,
+                'message'    => 'Seu plano não inclui controle de estoque. Faça upgrade para continuar.',
+                'error_code' => 'PLAN_FEATURE_UNAVAILABLE',
+            ], 403);
+        }
+
         $per_page = min((int) $request->get('per_page', 15), 100);
         $search   = $request->get('search', '');
 
-        $query = Ingredient::where('user_id', $request->user()->id)
+        $query = Ingredient::where('user_id', $user->id)
+            ->where('active', true)
             ->when($search, fn ($q) => $q->where('name', 'like', '%' . $search . '%'))
             ->orderBy('name')
             ->paginate($per_page);

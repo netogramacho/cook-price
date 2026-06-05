@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\IngredientController;
@@ -12,6 +13,8 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\VerifyEmailController;
 use App\Http\Middleware\EnsureEmailIsVerified;
 use Illuminate\Support\Facades\Route;
+
+Route::post('admin/users/{userId}/plan', [AdminController::class, 'updateUserPlan']);
 
 Route::prefix('auth')->group(function () {
     Route::post('register',        [AuthController::class, 'register'])->middleware('throttle:10,1')->name('auth.register');

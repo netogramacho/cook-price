@@ -11,11 +11,14 @@ class UserController extends Controller
 {
     public function show(Request $request): JsonResponse
     {
-        $user = $request->user()->only('id', 'name', 'email', 'email_verified_at', 'invisible_cost_pct', 'profit_multiplier', 'disable_stock_control');
+        $user = $request->user()->load('plan');
 
         return response()->json([
             'success' => true,
-            'data'    => $user,
+            'data'    => array_merge(
+                $user->only('id', 'name', 'email', 'email_verified_at', 'invisible_cost_pct', 'profit_multiplier', 'disable_stock_control'),
+                ['plan' => $user->plan]
+            ),
             'message' => 'Usuário encontrado.',
         ]);
     }

@@ -16,6 +16,7 @@ class IngredientController extends Controller
         $search   = $request->get('search', '');
 
         $ingredients = Ingredient::where('user_id', $request->user()->id)
+            ->where('active', true)
             ->when($search, fn ($q) => $q->where('name', 'like', '%' . $search . '%'))
             ->orderBy('name')
             ->paginate($per_page);
@@ -29,8 +30,22 @@ class IngredientController extends Controller
 
     public function store(StoreIngredientRequest $request): JsonResponse
     {
+        $user = $request->user()->load('plan');
+        $plan = $user->plan;
+
+        if ($plan->max_ingredients !== null) {
+            $count = Ingredient::where('user_id', $user->id)->where('active', true)->count();
+            if ($count >= $plan->max_ingredients) {
+                return response()->json([
+                    'success'    => false,
+                    'message'    => "Seu plano permite no máximo {$plan->max_ingredients} ingredientes. Faça upgrade para continuar.",
+                    'error_code' => 'PLAN_LIMIT_REACHED',
+                ], 403);
+            }
+        }
+
         $ingredient = Ingredient::create([
-            'user_id'      => $request->user()->id,
+            'user_id'      => $user->id,
             'name'         => $request->name,
             'type'         => $request->type,
             'unit'         => $request->unit,
@@ -48,7 +63,7 @@ class IngredientController extends Controller
 
     public function show(Request $request, Ingredient $ingredient): JsonResponse
     {
-        if ($ingredient->user_id !== $request->user()->id) {
+        if ($ingredient->user_id !== $request->user()->id || !$ingredient->active) {
             return response()->json([
                 'success'    => false,
                 'message'    => 'Ingrediente não encontrado.',
@@ -65,7 +80,7 @@ class IngredientController extends Controller
 
     public function update(UpdateIngredientRequest $request, Ingredient $ingredient): JsonResponse
     {
-        if ($ingredient->user_id !== $request->user()->id) {
+        if ($ingredient->user_id !== $request->user()->id || !$ingredient->active) {
             return response()->json([
                 'success'    => false,
                 'message'    => 'Ingrediente não encontrado.',
