@@ -15,7 +15,15 @@ class PurchaseController extends Controller
 
     public function store(StorePurchaseRequest $request): JsonResponse
     {
-        $user = $request->user();
+        $user = $request->user()->load('plan');
+
+        if (!$user->plan->has_stock) {
+            return response()->json([
+                'success'    => false,
+                'message'    => 'Seu plano não inclui controle de estoque. Faça upgrade para continuar.',
+                'error_code' => 'PLAN_FEATURE_UNAVAILABLE',
+            ], 403);
+        }
 
         // Validate ownership of all ingredients before touching anything
         $ingredient_ids = collect($request->items)->pluck('ingredient_id')->unique();

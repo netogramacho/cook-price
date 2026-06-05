@@ -210,7 +210,9 @@ export function Recipes() {
                     <span>
                       Custo total: R$ {fmtCurrency(r.total_cost)}
                       &nbsp;·&nbsp;Por {r.yield_unit}: R$ {fmtCurrency((r as unknown as Record<string, unknown>).cost_per_yield as number)}
-                      &nbsp;·&nbsp;Preço sugerido/{r.yield_unit}: R$ {fmtCurrency((r as unknown as Record<string, unknown>).suggested_price_per_yield as number)}
+                      {(r as unknown as Record<string, unknown>).suggested_price_per_yield != null && (
+                        <>&nbsp;·&nbsp;Preço sugerido/{r.yield_unit}: R$ {fmtCurrency((r as unknown as Record<string, unknown>).suggested_price_per_yield as number)}</>
+                      )}
                     </span>
                   </div>
                   <div className="recipe-actions">

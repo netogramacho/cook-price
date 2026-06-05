@@ -27,7 +27,7 @@ export function Stock() {
   const [hasMore, setHasMore] = useState(false)
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
-  const [loadError, setLoadError] = useState(false)
+  const [loadError, setLoadError] = useState<string | false>(false)
   const [search, setSearch] = useState('')
   const searchRef = useRef('')
 
@@ -49,7 +49,9 @@ export function Stock() {
     try {
       const { items: data, meta } = await StockService.getPaginated(1, q.trim())
       setItems(data); setCurrentPage(meta.current_page); setHasMore(meta.current_page < (meta.last_page ?? 1))
-    } catch { setLoadError(true) }
+    } catch (err: unknown) {
+      setLoadError((err as { message?: string }).message ?? 'Erro ao carregar estoque.')
+    }
     finally { setLoading(false) }
   }
 
@@ -153,7 +155,7 @@ export function Stock() {
     try {
       const { items: mvs, meta } = await StockService.getMovements(item.id, 1)
       setHistoryModal(m => ({ ...m, loading: false, movements: mvs, currentPage: meta.current_page, hasMore: meta.current_page < (meta.last_page ?? 1) }))
-    } catch { error('Erro ao carregar histórico.'); setHistoryModal(m => ({ ...m, loading: false })) }
+    } catch (err: unknown) { error((err as { message?: string }).message ?? 'Erro ao carregar histórico.'); setHistoryModal(m => ({ ...m, loading: false })) }
   }
 
   async function loadMoreHistory() {
@@ -185,7 +187,7 @@ export function Stock() {
           <PageHeader title="Estoque" actionLabel="+ Registrar Compra" onAction={openPurchaseModal} />
           <SearchBar placeholder="Buscar ingrediente..." value={search} onChange={handleSearch} />
 
-          <AsyncState loading={loading} error={loadError ? 'Erro ao carregar estoque.' : null}
+          <AsyncState loading={loading} error={loadError || null}
             empty={!items.length} emptyEntityName="ingrediente" emptySearch={search}>
             <>
               <div className="table-wrapper">

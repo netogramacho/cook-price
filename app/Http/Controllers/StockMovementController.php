@@ -14,7 +14,25 @@ class StockMovementController extends Controller
 
     public function adjust(AdjustStockRequest $request, Ingredient $ingredient): JsonResponse
     {
-        if ($ingredient->user_id !== $request->user()->id) {
+        $user = $request->user()->load('plan');
+
+        if (!$user->plan->has_stock) {
+            return response()->json([
+                'success'    => false,
+                'message'    => 'Seu plano não inclui controle de estoque. Faça upgrade para continuar.',
+                'error_code' => 'PLAN_FEATURE_UNAVAILABLE',
+            ], 403);
+        }
+
+        if ($ingredient->user_id !== $user->id) {
+            return response()->json([
+                'success'    => false,
+                'message'    => 'Ingrediente não encontrado.',
+                'error_code' => 'INGREDIENT_NOT_FOUND',
+            ], 404);
+        }
+
+        if (!$ingredient->active) {
             return response()->json([
                 'success'    => false,
                 'message'    => 'Ingrediente não encontrado.',
@@ -50,7 +68,17 @@ class StockMovementController extends Controller
 
     public function index(Request $request, Ingredient $ingredient): JsonResponse
     {
-        if ($ingredient->user_id !== $request->user()->id) {
+        $user = $request->user()->load('plan');
+
+        if (!$user->plan->has_stock_history) {
+            return response()->json([
+                'success'    => false,
+                'message'    => 'Seu plano não inclui histórico de movimentações. Faça upgrade para continuar.',
+                'error_code' => 'PLAN_FEATURE_UNAVAILABLE',
+            ], 403);
+        }
+
+        if ($ingredient->user_id !== $user->id) {
             return response()->json([
                 'success'    => false,
                 'message'    => 'Ingrediente não encontrado.',

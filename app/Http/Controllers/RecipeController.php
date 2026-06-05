@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\Recipe\StoreRecipeRequest;
 use App\Http\Requests\Recipe\UpdateRecipeRequest;
+use App\Models\Plan;
 use App\Models\Recipe;
 use App\Services\RecipeCostService;
 use App\Services\StockMovementService;
@@ -21,20 +22,25 @@ class RecipeController extends Controller
     {
         $per_page = min((int) $request->get('per_page', 15), 100);
         $search   = $request->get('search', '');
+        $user     = $request->user()->load('plan');
+        $plan     = $user->plan;
 
-        $recipes = Recipe::where('user_id', $request->user()->id)
+        $recipes = Recipe::where('user_id', $user->id)
+            ->where('active', true)
             ->with('ingredients')
             ->when($search, fn ($q) => $q->where('name', 'like', '%' . $search . '%'))
             ->orderBy('name')
             ->paginate($per_page);
 
-        $recipes->getCollection()->transform(function ($recipe) {
+        $has_pricing = $plan->has_pricing;
+
+        $recipes->getCollection()->transform(function ($recipe) use ($has_pricing) {
             $cost = $this->cost_service->calculate($recipe);
 
             return array_merge($recipe->toArray(), [
                 'total_cost'                => $cost['total_cost'],
                 'cost_per_yield'            => $cost['cost_per_yield'],
-                'suggested_price_per_yield' => $cost['suggested_price_per_yield'],
+                'suggested_price_per_yield' => $has_pricing ? $cost['suggested_price_per_yield'] : null,
             ]);
         });
 
@@ -47,8 +53,22 @@ class RecipeController extends Controller
 
     public function store(StoreRecipeRequest $request): JsonResponse
     {
+        $user = $request->user()->load('plan');
+        $plan = $user->plan;
+
+        if ($plan->max_recipes !== null) {
+            $count = Recipe::where('user_id', $user->id)->where('active', true)->count();
+            if ($count >= $plan->max_recipes) {
+                return response()->json([
+                    'success'    => false,
+                    'message'    => "Seu plano permite no máximo {$plan->max_recipes} receitas. Faça upgrade para continuar.",
+                    'error_code' => 'PLAN_LIMIT_REACHED',
+                ], 403);
+            }
+        }
+
         $recipe = Recipe::create([
-            'user_id'             => $request->user()->id,
+            'user_id'             => $user->id,
             'name'                => $request->name,
             'description'         => $request->description,
             'yield'               => $request->yield,
@@ -66,14 +86,14 @@ class RecipeController extends Controller
 
         return response()->json([
             'success' => true,
-            'data'    => $this->formatRecipe($recipe, $cost),
+            'data'    => $this->formatRecipe($recipe, $cost, $plan->has_pricing),
             'message' => 'Receita criada com sucesso.',
         ], 201);
     }
 
     public function show(Request $request, Recipe $recipe): JsonResponse
     {
-        if ($recipe->user_id !== $request->user()->id) {
+        if ($recipe->user_id !== $request->user()->id || !$recipe->active) {
             return response()->json([
                 'success'    => false,
                 'message'    => 'Receita não encontrada.',
@@ -81,25 +101,28 @@ class RecipeController extends Controller
             ], 404);
         }
 
+        $plan = $request->user()->load('plan')->plan;
         $recipe->load('ingredients');
         $cost = $this->cost_service->calculate($recipe);
 
         return response()->json([
             'success' => true,
-            'data'    => $this->formatRecipe($recipe, $cost),
+            'data'    => $this->formatRecipe($recipe, $cost, $plan->has_pricing),
             'message' => 'Receita encontrada.',
         ]);
     }
 
     public function update(UpdateRecipeRequest $request, Recipe $recipe): JsonResponse
     {
-        if ($recipe->user_id !== $request->user()->id) {
+        if ($recipe->user_id !== $request->user()->id || !$recipe->active) {
             return response()->json([
                 'success'    => false,
                 'message'    => 'Receita não encontrada.',
                 'error_code' => 'RECIPE_NOT_FOUND',
             ], 404);
         }
+
+        $plan = $request->user()->load('plan')->plan;
 
         $recipe->update($request->only('name', 'description', 'yield', 'yield_unit', 'invisible_cost_pct', 'profit_multiplier'));
 
@@ -114,7 +137,7 @@ class RecipeController extends Controller
 
         return response()->json([
             'success' => true,
-            'data'    => $this->formatRecipe($recipe, $cost),
+            'data'    => $this->formatRecipe($recipe, $cost, $plan->has_pricing),
             'message' => 'Receita atualizada com sucesso.',
         ]);
     }
@@ -140,7 +163,7 @@ class RecipeController extends Controller
 
     public function produce(Request $request, Recipe $recipe): JsonResponse
     {
-        if ($recipe->user_id !== $request->user()->id) {
+        if ($recipe->user_id !== $request->user()->id || !$recipe->active) {
             return response()->json([
                 'success'    => false,
                 'message'    => 'Receita não encontrada.',
@@ -148,13 +171,23 @@ class RecipeController extends Controller
             ], 404);
         }
 
+        $plan = $request->user()->load('plan')->plan;
+
+        if (!$plan->has_production) {
+            return response()->json([
+                'success'    => false,
+                'message'    => 'Seu plano não inclui registro de produção. Faça upgrade para continuar.',
+                'error_code' => 'PLAN_FEATURE_UNAVAILABLE',
+            ], 403);
+        }
+
         $request->validate([
             'times' => ['required', 'integer', 'min:1'],
         ]);
 
-        $times       = (int) $request->times;
-        $force       = (bool) $request->input('force', false);
-        $skip_stock  = (bool) $request->user()->disable_stock_control;
+        $times      = (int) $request->times;
+        $force      = (bool) $request->input('force', false);
+        $skip_stock = (bool) $request->user()->disable_stock_control;
         $recipe->load('ingredients');
 
         if (!$skip_stock) {
@@ -210,7 +243,7 @@ class RecipeController extends Controller
         return $sync;
     }
 
-    private function formatRecipe(Recipe $recipe, array $cost): array
+    private function formatRecipe(Recipe $recipe, array $cost, bool $has_pricing = true): array
     {
         return [
             'id'                        => $recipe->id,
@@ -218,21 +251,22 @@ class RecipeController extends Controller
             'description'               => $recipe->description,
             'yield'                     => $recipe->yield,
             'yield_unit'                => $recipe->yield_unit,
+            'active'                    => $recipe->active,
             'created_at'                => $recipe->created_at,
             'updated_at'                => $recipe->updated_at,
             'ingredients'               => $cost['ingredients'],
             'ingredients_cost'          => $cost['ingredients_cost'],
-            'packaging_cost'            => $cost['packaging_cost'],
+            'packaging_cost'            => $has_pricing ? $cost['packaging_cost']            : null,
             'base_cost'                 => $cost['base_cost'],
-            'invisible_cost_pct'        => $cost['invisible_cost_pct'],
-            'invisible_cost'            => $cost['invisible_cost'],
-            'production_cost'           => $cost['production_cost'],
-            'profit_multiplier'         => $cost['profit_multiplier'],
-            'profit_margin_pct'         => $cost['profit_margin_pct'],
-            'suggested_price'           => $cost['suggested_price'],
+            'invisible_cost_pct'        => $has_pricing ? $cost['invisible_cost_pct']        : null,
+            'invisible_cost'            => $has_pricing ? $cost['invisible_cost']            : null,
+            'production_cost'           => $has_pricing ? $cost['production_cost']           : null,
+            'profit_multiplier'         => $has_pricing ? $cost['profit_multiplier']         : null,
+            'profit_margin_pct'         => $has_pricing ? $cost['profit_margin_pct']         : null,
+            'suggested_price'           => $has_pricing ? $cost['suggested_price']           : null,
             'total_cost'                => $cost['total_cost'],
             'cost_per_yield'            => $cost['cost_per_yield'],
-            'suggested_price_per_yield' => $cost['suggested_price_per_yield'],
+            'suggested_price_per_yield' => $has_pricing ? $cost['suggested_price_per_yield'] : null,
         ];
     }
 }

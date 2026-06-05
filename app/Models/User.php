@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Mail\EmailVerificationMail;
+use App\Models\Plan;
 use Database\Factories\UserFactory;
 use Illuminate\Auth\MustVerifyEmail;
 use Illuminate\Auth\Passwords\CanResetPassword;
@@ -26,6 +27,7 @@ class User extends Authenticatable implements CanResetPasswordContract, MustVeri
         'email',
         'phone',
         'password',
+        'plan_id',
         'invisible_cost_pct',
         'profit_multiplier',
         'disable_stock_control',
@@ -44,6 +46,11 @@ class User extends Authenticatable implements CanResetPasswordContract, MustVeri
             'profit_multiplier'      => 'decimal:2',
             'disable_stock_control'  => 'boolean',
         ];
+    }
+
+    public function plan(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(Plan::class);
     }
 
     public function sendEmailVerificationNotification(): void
