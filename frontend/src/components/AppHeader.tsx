@@ -2,10 +2,13 @@ import { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { Modal } from './Modal'
 import { FormField } from './ui/FormField'
-import { NumericInput } from './ui/NumericInput'
+import { ProfitMultiplierField } from './ui/ProfitMultiplierField'
+import { InvisibleCostField } from './ui/InvisibleCostField'
 import { AuthService } from '../services/AuthService'
 import { UserService } from '../services/UserService'
 import { useAppStore } from '../store/useAppStore'
+import { useModal } from '../hooks/useModal'
+import { handleApiError } from '../utils/apiError'
 import { getUser } from '../lib/auth'
 import { parseDecimal } from '../utils/inputs'
 
@@ -36,17 +39,11 @@ export function AppHeader() {
 
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
-  const [pwModal, setPwModal] = useState({ visible: false, loading: false, errors: {} as Record<string, string[]> })
+  const pwModal = useModal({ visible: false, loading: false, errors: {} as Record<string, string[]> })
   const [pwForm, setPwForm] = useState<ChangePasswordForm>({ current_password: '', password: '', password_confirmation: '' })
 
-  const [settingsModal, setSettingsModal] = useState({ visible: false, loading: false, errors: {} as Record<string, string[]> })
+  const settingsModal = useModal({ visible: false, loading: false, errors: {} as Record<string, string[]> })
   const [settingsForm, setSettingsForm] = useState<SettingsForm>({ invisible_cost_pct: '', profit_multiplier: 3, disable_stock_control: false })
-
-  const settingsMargin = (() => {
-    const m = Number(settingsForm.profit_multiplier)
-    if (!m || m <= 0) return '0,0'
-    return ((1 - 1 / m) * 100).toFixed(1).replace('.', ',')
-  })()
 
   async function handleLogout() {
     await AuthService.logout()
@@ -55,21 +52,19 @@ export function AppHeader() {
 
   function openChangePassword() {
     setPwForm({ current_password: '', password: '', password_confirmation: '' })
-    setPwModal({ visible: true, loading: false, errors: {} })
+    pwModal.open()
   }
 
   async function savePassword() {
-    setPwModal(s => ({ ...s, loading: true, errors: {} }))
+    pwModal.startSubmit()
     try {
       await UserService.changePassword(pwForm)
       success('Senha alterada com sucesso.')
-      setPwModal(s => ({ ...s, visible: false }))
-    } catch (err: unknown) {
-      const e = err as { errors?: Record<string, string[]>; message?: string }
-      setPwModal(s => ({ ...s, errors: e.errors ?? {} }))
-      if (!e.errors) error(e.message ?? 'Erro ao alterar senha.')
+      pwModal.close()
+    } catch (err) {
+      handleApiError(err, pwModal.setErrors, error, 'Erro ao alterar senha.')
     } finally {
-      setPwModal(s => ({ ...s, loading: false }))
+      pwModal.setLoading(false)
     }
   }
 
@@ -85,11 +80,11 @@ export function AppHeader() {
       error('Erro ao carregar configurações.')
       return
     }
-    setSettingsModal({ visible: true, loading: false, errors: {} })
+    settingsModal.open()
   }
 
   async function saveSettings() {
-    setSettingsModal(s => ({ ...s, loading: true, errors: {} }))
+    settingsModal.startSubmit()
     try {
       await UserService.updateSettings({
         invisible_cost_pct: parseDecimal(String(settingsForm.invisible_cost_pct)),
@@ -97,13 +92,11 @@ export function AppHeader() {
         disable_stock_control: settingsForm.disable_stock_control,
       } as Parameters<typeof UserService.updateSettings>[0])
       success('Configurações salvas.')
-      setSettingsModal(s => ({ ...s, visible: false }))
-    } catch (err: unknown) {
-      const e = err as { errors?: Record<string, string[]>; message?: string }
-      setSettingsModal(s => ({ ...s, errors: e.errors ?? {} }))
-      if (!e.errors) error(e.message ?? 'Erro ao salvar configurações.')
+      settingsModal.close()
+    } catch (err) {
+      handleApiError(err, settingsModal.setErrors, error, 'Erro ao salvar configurações.')
     } finally {
-      setSettingsModal(s => ({ ...s, loading: false }))
+      settingsModal.setLoading(false)
     }
   }
 
@@ -143,57 +136,46 @@ export function AppHeader() {
       </aside>
 
       <Modal
-        visible={pwModal.visible}
+        visible={pwModal.state.visible}
         title="Alterar Senha"
-        loading={pwModal.loading}
+        loading={pwModal.state.loading}
         submitText="Salvar"
-        onClose={() => setPwModal(s => ({ ...s, visible: false }))}
+        onClose={pwModal.close}
         onSubmit={savePassword}
       >
-        <FormField label="Senha atual" error={pwModal.errors.current_password?.[0]}>
+        <FormField label="Senha atual" error={pwModal.state.errors.current_password?.[0]}>
           <input type="password" value={pwForm.current_password} autoComplete="current-password"
             onChange={e => setPwForm(f => ({ ...f, current_password: e.target.value }))} />
         </FormField>
-        <FormField label="Nova senha" error={pwModal.errors.password?.[0]}>
+        <FormField label="Nova senha" error={pwModal.state.errors.password?.[0]}>
           <input type="password" value={pwForm.password} autoComplete="new-password"
             onChange={e => setPwForm(f => ({ ...f, password: e.target.value }))} />
         </FormField>
-        <FormField label="Confirmar nova senha" error={pwModal.errors.password_confirmation?.[0]}>
+        <FormField label="Confirmar nova senha" error={pwModal.state.errors.password_confirmation?.[0]}>
           <input type="password" value={pwForm.password_confirmation} autoComplete="new-password"
             onChange={e => setPwForm(f => ({ ...f, password_confirmation: e.target.value }))} />
         </FormField>
       </Modal>
 
       <Modal
-        visible={settingsModal.visible}
+        visible={settingsModal.state.visible}
         title="Configurações de Precificação"
-        loading={settingsModal.loading}
+        loading={settingsModal.state.loading}
         submitText="Salvar"
-        onClose={() => setSettingsModal(s => ({ ...s, visible: false }))}
+        onClose={settingsModal.close}
         onSubmit={saveSettings}
       >
         <p className="settings-hint">Esses valores são usados como padrão ao criar novas receitas.</p>
-        <FormField label="Custos Invisíveis (%)" error={settingsModal.errors.invisible_cost_pct?.[0]}>
-          <NumericInput
-            value={settingsForm.invisible_cost_pct}
-            placeholder="Ex: 25"
-            onChange={v => setSettingsForm(f => ({ ...f, invisible_cost_pct: v }))}
-          />
-        </FormField>
-        <FormField label="Multiplicador de Lucro" error={settingsModal.errors.profit_multiplier?.[0]}>
-          <div className="multiplier-control">
-            <input type="range" min="1" max="6" step="0.25"
-              value={settingsForm.profit_multiplier}
-              onChange={e => setSettingsForm(f => ({ ...f, profit_multiplier: Number(e.target.value) }))} />
-            <NumericInput
-              className="multiplier-input"
-              value={settingsForm.profit_multiplier}
-              onChange={v => setSettingsForm(f => ({ ...f, profit_multiplier: Number(v) }))}
-            />
-            <span className="multiplier-suffix">x</span>
-          </div>
-          <p className="multiplier-hint">Margem de lucro: {settingsMargin}%</p>
-        </FormField>
+        <InvisibleCostField
+          value={settingsForm.invisible_cost_pct}
+          onChange={v => setSettingsForm(f => ({ ...f, invisible_cost_pct: v }))}
+          error={settingsModal.state.errors.invisible_cost_pct?.[0]}
+        />
+        <ProfitMultiplierField
+          value={settingsForm.profit_multiplier}
+          onChange={v => setSettingsForm(f => ({ ...f, profit_multiplier: v }))}
+          error={settingsModal.state.errors.profit_multiplier?.[0]}
+        />
         <div className="form-group settings-toggle-group">
           <div className="settings-toggle-row">
             <div>
