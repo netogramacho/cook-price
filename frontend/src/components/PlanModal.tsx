@@ -36,9 +36,10 @@ const PLANS: PlanDef[] = [
 interface Props {
   visible: boolean
   onClose: () => void
+  message?: string | null
 }
 
-export function PlanModal({ visible, onClose }: Props) {
+export function PlanModal({ visible, onClose, message }: Props) {
   const { success, error } = useAppStore()
 
   const [currentPlan, setCurrentPlan] = useState<UserPlan | null>(getUser()?.plan ?? null)
@@ -94,18 +95,33 @@ export function PlanModal({ visible, onClose }: Props) {
     }
   }
 
+  const [isClosing, setIsClosing] = useState(false)
+
+  function handleClose() {
+    setIsClosing(true)
+    setTimeout(() => {
+      setIsClosing(false)
+      onClose()
+    }, 220)
+  }
+
   const pendingOrPaused = subscription?.mp_status === 'pending' || subscription?.mp_status === 'paused'
 
-  if (!visible) return null
+  if (!visible && !isClosing) return null
 
   return (
-    <div className="plan-drawer-overlay" onClick={onClose}>
-      <div className="plan-drawer" onClick={e => e.stopPropagation()}>
+    <div className={`plan-drawer-overlay${isClosing ? ' plan-drawer-overlay--closing' : ''}`} onClick={handleClose}>
+      <div className={`plan-drawer${isClosing ? ' plan-drawer--closing' : ''}`} onClick={e => e.stopPropagation()}>
         <div className="plan-drawer-header">
           <h3>Meu Plano</h3>
-          <button className="plan-drawer-close" onClick={onClose}>&times;</button>
+          <button className="plan-drawer-close" onClick={handleClose}>&times;</button>
         </div>
         <div className="plan-drawer-body">
+          {message && (
+            <div className="plan-limit-message">
+              {message}
+            </div>
+          )}
           {loadingPlan ? (
             <p className="plan-loading">Carregando...</p>
           ) : (

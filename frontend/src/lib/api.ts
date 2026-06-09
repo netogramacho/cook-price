@@ -16,9 +16,9 @@ function setLoading(active: boolean) {
   loadingListeners.forEach(fn => fn(loadingCount > 0))
 }
 
-const planUpgradeListeners: Array<() => void> = []
+const planUpgradeListeners: Array<(message: string) => void> = []
 
-export function subscribePlanUpgrade(fn: () => void) {
+export function subscribePlanUpgrade(fn: (message: string) => void) {
   planUpgradeListeners.push(fn)
   return () => {
     const i = planUpgradeListeners.indexOf(fn)
@@ -26,8 +26,8 @@ export function subscribePlanUpgrade(fn: () => void) {
   }
 }
 
-function notifyPlanUpgrade() {
-  planUpgradeListeners.forEach(fn => fn())
+function notifyPlanUpgrade(message: string) {
+  planUpgradeListeners.forEach(fn => fn(message))
 }
 
 export class PlanError extends Error {
@@ -66,8 +66,9 @@ async function request<T>(method: string, endpoint: string, data?: unknown): Pro
         window.location.href = '/verify-email'
       }
       if (errorCode === 'PLAN_LIMIT_REACHED' || errorCode === 'PLAN_FEATURE_UNAVAILABLE') {
-        notifyPlanUpgrade()
-        throw new PlanError((err as { message?: string }).message ?? 'Limite do plano atingido.')
+        const message = (err as { message?: string }).message ?? 'Limite do plano atingido.'
+        notifyPlanUpgrade(message)
+        throw new PlanError(message)
       }
       throw err
     }

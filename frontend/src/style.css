@@ -925,6 +925,18 @@ tr:hover td { background: #fffbf8; }
     from { transform: translateY(100%); }
     to   { transform: translateY(0); }
 }
+@keyframes plan-slide-down {
+    from { transform: translateY(0); }
+    to   { transform: translateY(100%); }
+}
+@keyframes plan-fade-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+@keyframes plan-fade-out {
+    from { opacity: 1; }
+    to   { opacity: 0; }
+}
 
 .plan-drawer-overlay {
     position: fixed;
@@ -933,6 +945,10 @@ tr:hover td { background: #fffbf8; }
     z-index: 9999;
     display: flex;
     align-items: flex-end;
+    animation: plan-fade-in 0.22s ease;
+}
+.plan-drawer-overlay--closing {
+    animation: plan-fade-out 0.22s ease forwards;
 }
 
 .plan-drawer {
@@ -941,7 +957,10 @@ tr:hover td { background: #fffbf8; }
     border-radius: 16px 16px 0 0;
     max-height: 90vh;
     overflow-y: auto;
-    animation: plan-slide-up 0.25s ease;
+    animation: plan-slide-up 0.22s ease;
+}
+.plan-drawer--closing {
+    animation: plan-slide-down 0.22s ease forwards;
 }
 
 .plan-drawer-header {
@@ -972,6 +991,16 @@ tr:hover td { background: #fffbf8; }
 
 .plan-drawer-body {
     padding: 20px 24px 36px;
+}
+
+.plan-limit-message {
+    background: var(--primary-light);
+    border: 1px solid #f5c9a0;
+    border-radius: var(--radius);
+    padding: 12px 16px;
+    font-size: 14px;
+    color: var(--primary-dark);
+    margin-bottom: 20px;
 }
 
 .plan-loading {
