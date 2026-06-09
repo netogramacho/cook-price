@@ -1,0 +1,60 @@
+name: Deploy Homolog
+
+on:
+  push:
+    branches: [homolog]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build React
+        run: |
+          cd frontend
+          npm install
+          npm run build
+
+      - name: Update server code
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.HML_SSH_HOST }}
+          username: ${{ secrets.HML_SSH_USER }}
+          key: ${{ secrets.HML_SSH_PRIVATE_KEY }}
+          port: ${{ secrets.HML_SSH_PORT }}
+          script: |
+            cd ~/hml.cookprice.moderon.com.br
+            rm -f public/index.html
+            rm -rf public/build public/assets
+            git pull origin homolog
+
+      - name: Copy built frontend to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.HML_SSH_HOST }}
+          username: ${{ secrets.HML_SSH_USER }}
+          key: ${{ secrets.HML_SSH_PRIVATE_KEY }}
+          port: ${{ secrets.HML_SSH_PORT }}
+          source: "public/index.html,public/assets/"
+          target: "~/hml.cookprice.moderon.com.br/"
+
+      - name: Run Laravel commands
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.HML_SSH_HOST }}
+          username: ${{ secrets.HML_SSH_USER }}
+          key: ${{ secrets.HML_SSH_PRIVATE_KEY }}
+          port: ${{ secrets.HML_SSH_PORT }}
+          script: |
+            cd ~/hml.cookprice.moderon.com.br
+            php ~/composer.phar install --no-dev --optimize-autoloader
+            php artisan optimize:clear
+            php artisan migrate --force
+            php artisan optimize
