@@ -6,4 +6,5 @@ return [
     'basic_plan_id'  => env('MP_BASIC_PLAN_ID', ''),
     'pro_plan_id'    => env('MP_PRO_PLAN_ID', ''),
     'back_url'       => env('MP_BACK_URL', env('APP_FRONTEND_URL', 'http://localhost')),
+    'verify_ssl'     => env('MP_VERIFY_SSL', true),
 ];

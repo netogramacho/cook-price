@@ -7,7 +7,6 @@ use App\Models\Subscription;
 use App\Services\MercadoPagoService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
 
 class WebhookController extends Controller
 {
@@ -16,40 +15,33 @@ class WebhookController extends Controller
     public function handleMercadoPago(Request $request): JsonResponse
     {
         if (!$this->mp->validateWebhookSignature($request)) {
-            Log::warning('Webhook MP: assinatura inválida', [
-                'ip'      => $request->ip(),
-                'payload' => $request->all(),
-            ]);
+            $this->mp->logIncomingWebhook($request, false, 'Assinatura inválida.');
             return response()->json(['message' => 'Unauthorized'], 401);
         }
 
         if ($request->input('type') !== 'preapproval') {
+            $this->mp->logIncomingWebhook($request, true);
             return response()->json(['message' => 'OK'], 200);
         }
 
         $preapprovalId = $request->input('data.id');
 
         if (!$preapprovalId) {
+            $this->mp->logIncomingWebhook($request, false, 'data.id ausente no payload.');
             return response()->json(['message' => 'OK'], 200);
         }
 
         $subscription = Subscription::where('mp_preapproval_id', $preapprovalId)->first();
 
         if (!$subscription) {
-            Log::info('Webhook MP: preapproval não encontrado localmente', [
-                'preapproval_id' => $preapprovalId,
-            ]);
+            $this->mp->logIncomingWebhook($request, false, "Preapproval {$preapprovalId} não encontrado localmente.");
             return response()->json(['message' => 'OK'], 200);
         }
 
         try {
             $preapproval = $this->mp->getPreapproval($preapprovalId);
         } catch (\RuntimeException $e) {
-            Log::error('Webhook MP: erro ao buscar preapproval', [
-                'preapproval_id' => $preapprovalId,
-                'error'          => $e->getMessage(),
-            ]);
-            // Retorna 200 para o MP não retentar indefinidamente
+            $this->mp->logIncomingWebhook($request, false, $e->getMessage());
             return response()->json(['message' => 'OK'], 200);
         }
 
@@ -59,8 +51,10 @@ class WebhookController extends Controller
             'authorized' => $this->handleAuthorized($subscription),
             'cancelled'  => $this->handleCancelled($subscription),
             'paused'     => $this->handlePaused($subscription),
-            default      => Log::info('Webhook MP: status não tratado', ['status' => $mpStatus]),
+            default      => null,
         };
+
+        $this->mp->logIncomingWebhook($request, true);
 
         return response()->json(['message' => 'OK'], 200);
     }
@@ -75,7 +69,7 @@ class WebhookController extends Controller
 
         $user          = $subscription->user;
         $user->plan_id = $subscription->plan_id;
-        $user->save(); // dispara UserObserver
+        $user->save();
     }
 
     private function handleCancelled(Subscription $subscription): void
@@ -88,7 +82,7 @@ class WebhookController extends Controller
         $freePlanId    = Plan::where('name', 'free')->value('id');
         $user          = $subscription->user;
         $user->plan_id = $freePlanId;
-        $user->save(); // dispara UserObserver
+        $user->save();
     }
 
     private function handlePaused(Subscription $subscription): void
