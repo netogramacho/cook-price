@@ -920,7 +920,60 @@ tr:hover td { background: #fffbf8; }
     margin-bottom: 4px;
 }
 
-/* Plan modal */
+/* Plan drawer */
+@keyframes plan-slide-up {
+    from { transform: translateY(100%); }
+    to   { transform: translateY(0); }
+}
+
+.plan-drawer-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 9999;
+    display: flex;
+    align-items: flex-end;
+}
+
+.plan-drawer {
+    width: 100%;
+    background: var(--card-bg);
+    border-radius: 16px 16px 0 0;
+    max-height: 90vh;
+    overflow-y: auto;
+    animation: plan-slide-up 0.25s ease;
+}
+
+.plan-drawer-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 24px 16px;
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    background: var(--card-bg);
+    z-index: 1;
+}
+.plan-drawer-header h3 {
+    font-size: 17px;
+    font-weight: 700;
+}
+.plan-drawer-close {
+    background: none;
+    border: none;
+    font-size: 24px;
+    line-height: 1;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 2px 6px;
+}
+.plan-drawer-close:hover { color: var(--text); }
+
+.plan-drawer-body {
+    padding: 20px 24px 36px;
+}
+
 .plan-loading {
     text-align: center;
     color: var(--text-muted);
@@ -1001,9 +1054,8 @@ tr:hover td { background: #fffbf8; }
     font-size: 12px;
 }
 
-.plan-card-action {
-    margin-top: auto;
-}
+.plan-card-action { margin-top: auto; }
+
 .plan-badge-current {
     display: block;
     text-align: center;
@@ -1041,6 +1093,7 @@ tr:hover td { background: #fffbf8; }
 
 @media (max-width: 600px) {
     .plan-cards { grid-template-columns: 1fr; }
+    .plan-drawer-body { padding: 16px 16px 40px; }
 }
 
 /* Responsive */
