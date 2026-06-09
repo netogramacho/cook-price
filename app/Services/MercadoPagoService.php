@@ -26,15 +26,16 @@ class MercadoPagoService
 
     public function createPreapproval(User $user, Plan $plan): array
     {
-        $mpPlanId = $plan->name === 'basic'
-            ? config('mercadopago.basic_plan_id')
-            : config('mercadopago.pro_plan_id');
-
         $payload = [
-            'preapproval_plan_id' => $mpPlanId,
-            'reason'              => "{$plan->label} - CookPrice",
-            'payer_email'         => $user->email,
-            'back_url'            => $this->backUrl,
+            'reason'         => "{$plan->label} - CookPrice",
+            'payer_email'    => $user->email,
+            'back_url'       => $this->backUrl,
+            'auto_recurring' => [
+                'frequency'          => 1,
+                'frequency_type'     => 'months',
+                'transaction_amount' => (float) $plan->price,
+                'currency_id'        => 'BRL',
+            ],
         ];
 
         $response = $this->http()->post('https://api.mercadopago.com/preapproval', $payload);
