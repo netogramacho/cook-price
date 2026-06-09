@@ -10,7 +10,8 @@ return new class extends Migration
     {
         Schema::create('subscriptions', function (Blueprint $table) {
             $table->uuid('id')->primary();
-            $table->foreignUuid('user_id')->unique()->constrained()->onDelete('cascade');
+            $table->foreignUuid('user_id')->constrained()->onDelete('cascade');
+            $table->index('user_id');
             $table->foreignUuid('plan_id')->constrained();
             $table->string('mp_preapproval_id', 100)->unique()->nullable();
             $table->enum('mp_status', ['pending', 'authorized', 'paused', 'cancelled'])->default('pending');

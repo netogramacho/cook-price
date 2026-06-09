@@ -1,0 +1,29 @@
+import { api } from '../lib/api'
+import type { UserPlan } from '../lib/auth'
+
+export interface SubscriptionData {
+  id: string
+  mp_status: 'pending' | 'authorized' | 'paused' | 'cancelled'
+  starts_at: string | null
+  ends_at: string | null
+  plan: UserPlan
+}
+
+export interface CurrentSubscription {
+  plan: UserPlan
+  subscription: SubscriptionData | null
+}
+
+export const SubscriptionService = {
+  current(): Promise<CurrentSubscription> {
+    return api.get<{ data: CurrentSubscription }>('/subscriptions/current').then(r => r.data)
+  },
+
+  subscribe(plan: 'basic' | 'pro'): Promise<{ checkout_url: string }> {
+    return api.post<{ data: { checkout_url: string } }>('/subscriptions', { plan }).then(r => r.data)
+  },
+
+  cancel(): Promise<void> {
+    return api.delete<void>('/subscriptions')
+  },
+}

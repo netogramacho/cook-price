@@ -907,6 +907,142 @@ tr:hover td { background: #fffbf8; }
 .produce-error-list { padding-left: 16px; margin-top: 4px; }
 .produce-error-list li { list-style: disc; font-size: 13px; color: #92400e; margin-bottom: 2px; }
 
+/* Sidebar plan badge */
+.sidebar-plan-badge {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--primary-dark);
+    background: var(--primary-light);
+    border-radius: 20px;
+    padding: 2px 10px;
+    text-align: center;
+    margin-bottom: 4px;
+}
+
+/* Plan modal */
+.plan-loading {
+    text-align: center;
+    color: var(--text-muted);
+    padding: 24px 0;
+}
+
+.plan-status-alert {
+    border-radius: var(--radius);
+    padding: 10px 14px;
+    font-size: 13px;
+    margin-bottom: 16px;
+}
+.plan-status-pending {
+    background: #fff8e1;
+    color: #92651a;
+    border: 1px solid #ffe082;
+}
+.plan-status-paused {
+    background: #f3f0ff;
+    color: #5b4a9e;
+    border: 1px solid #c9bbf5;
+}
+
+.plan-cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.plan-card {
+    border: 2px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    background: var(--card-bg);
+    transition: border-color 0.15s;
+}
+.plan-card--current {
+    border-color: var(--primary);
+    background: var(--primary-light);
+}
+
+.plan-card-header {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.plan-card-name {
+    font-weight: 700;
+    font-size: 15px;
+}
+.plan-card-price {
+    font-size: 13px;
+    color: var(--text-muted);
+}
+
+.plan-features {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex: 1;
+}
+.plan-features li {
+    font-size: 13px;
+    color: var(--text);
+    padding-left: 16px;
+    position: relative;
+}
+.plan-features li::before {
+    content: '✓';
+    position: absolute;
+    left: 0;
+    color: var(--success);
+    font-size: 12px;
+}
+
+.plan-card-action {
+    margin-top: auto;
+}
+.plan-badge-current {
+    display: block;
+    text-align: center;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--primary-dark);
+    background: var(--primary-light);
+    border-radius: 20px;
+    padding: 4px 0;
+}
+
+.plan-cancel-section {
+    border-top: 1px solid var(--border);
+    padding-top: 16px;
+}
+.plan-cancel-link {
+    background: none;
+    border: none;
+    color: var(--danger);
+    font-size: 13px;
+    cursor: pointer;
+    padding: 0;
+    text-decoration: underline;
+}
+.plan-cancel-link:hover { opacity: 0.8; }
+.plan-cancel-confirm p {
+    font-size: 13px;
+    color: var(--text);
+    margin-bottom: 12px;
+}
+.plan-cancel-confirm-actions {
+    display: flex;
+    gap: 8px;
+}
+
+@media (max-width: 600px) {
+    .plan-cards { grid-template-columns: 1fr; }
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     .app-sidebar {
