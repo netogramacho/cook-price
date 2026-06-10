@@ -22,7 +22,7 @@ class WebhookController extends Controller
         $type       = $request->input('type');
         $resourceId = $request->input('data.id');
 
-        if ($type !== 'subscription_preapproval' || !$resourceId) {
+        if ($type !== 'preapproval' || !$resourceId) {
             $this->mp->logIncomingWebhook($request, true);
             return response()->json(['success' => true]);
         }
