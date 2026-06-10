@@ -16,6 +16,27 @@ function setLoading(active: boolean) {
   loadingListeners.forEach(fn => fn(loadingCount > 0))
 }
 
+const planUpgradeListeners: Array<(message: string) => void> = []
+
+export function subscribePlanUpgrade(fn: (message: string) => void) {
+  planUpgradeListeners.push(fn)
+  return () => {
+    const i = planUpgradeListeners.indexOf(fn)
+    if (i !== -1) planUpgradeListeners.splice(i, 1)
+  }
+}
+
+function notifyPlanUpgrade(message: string) {
+  planUpgradeListeners.forEach(fn => fn(message))
+}
+
+export class PlanError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'PlanError'
+  }
+}
+
 async function request<T>(method: string, endpoint: string, data?: unknown): Promise<T> {
   const token = getToken()
   const headers: Record<string, string> = {
@@ -40,8 +61,14 @@ async function request<T>(method: string, endpoint: string, data?: unknown): Pro
 
     if (res.status === 403) {
       const err = await res.json().catch(() => ({}))
-      if ((err as { error_code?: string }).error_code === 'EMAIL_NOT_VERIFIED') {
+      const errorCode = (err as { error_code?: string; message?: string }).error_code
+      if (errorCode === 'EMAIL_NOT_VERIFIED') {
         window.location.href = '/verify-email'
+      }
+      if (errorCode === 'PLAN_LIMIT_REACHED' || errorCode === 'PLAN_FEATURE_UNAVAILABLE') {
+        const message = (err as { message?: string }).message ?? 'Limite do plano atingido.'
+        notifyPlanUpgrade(message)
+        throw new PlanError(message)
       }
       throw err
     }

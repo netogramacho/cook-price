@@ -44,6 +44,10 @@ export function setAuth(token: string, user: AuthUser): void {
   localStorage.setItem(USER_KEY, JSON.stringify(user))
 }
 
+export function setUser(user: AuthUser): void {
+  localStorage.setItem(USER_KEY, JSON.stringify(user))
+}
+
 export function logout(): void {
   localStorage.removeItem(TOKEN_KEY)
   localStorage.removeItem(USER_KEY)

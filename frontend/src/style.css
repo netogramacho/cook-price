@@ -907,6 +907,224 @@ tr:hover td { background: #fffbf8; }
 .produce-error-list { padding-left: 16px; margin-top: 4px; }
 .produce-error-list li { list-style: disc; font-size: 13px; color: #92400e; margin-bottom: 2px; }
 
+/* Sidebar plan badge */
+.sidebar-plan-badge {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--primary-dark);
+    background: var(--primary-light);
+    border-radius: 20px;
+    padding: 2px 10px;
+    text-align: center;
+    margin-bottom: 4px;
+}
+
+/* Plan drawer */
+@keyframes plan-slide-up {
+    from { transform: translateY(100%); }
+    to   { transform: translateY(0); }
+}
+@keyframes plan-slide-down {
+    from { transform: translateY(0); }
+    to   { transform: translateY(100%); }
+}
+@keyframes plan-fade-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+@keyframes plan-fade-out {
+    from { opacity: 1; }
+    to   { opacity: 0; }
+}
+
+.plan-drawer-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 9999;
+    display: flex;
+    align-items: flex-end;
+    animation: plan-fade-in 0.22s ease;
+}
+.plan-drawer-overlay--closing {
+    animation: plan-fade-out 0.22s ease forwards;
+}
+
+.plan-drawer {
+    width: 100%;
+    background: var(--card-bg);
+    border-radius: 16px 16px 0 0;
+    max-height: 90vh;
+    overflow-y: auto;
+    animation: plan-slide-up 0.22s ease;
+}
+.plan-drawer--closing {
+    animation: plan-slide-down 0.22s ease forwards;
+}
+
+.plan-drawer-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 24px 16px;
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    background: var(--card-bg);
+    z-index: 1;
+}
+.plan-drawer-header h3 {
+    font-size: 17px;
+    font-weight: 700;
+}
+.plan-drawer-close {
+    background: none;
+    border: none;
+    font-size: 24px;
+    line-height: 1;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 2px 6px;
+}
+.plan-drawer-close:hover { color: var(--text); }
+
+.plan-drawer-body {
+    padding: 20px 24px 36px;
+}
+
+.plan-limit-message {
+    background: var(--primary-light);
+    border: 1px solid #f5c9a0;
+    border-radius: var(--radius);
+    padding: 12px 16px;
+    font-size: 14px;
+    color: var(--primary-dark);
+    margin-bottom: 20px;
+}
+
+.plan-loading {
+    text-align: center;
+    color: var(--text-muted);
+    padding: 24px 0;
+}
+
+.plan-status-alert {
+    border-radius: var(--radius);
+    padding: 10px 14px;
+    font-size: 13px;
+    margin-bottom: 16px;
+}
+.plan-status-pending {
+    background: #fff8e1;
+    color: #92651a;
+    border: 1px solid #ffe082;
+}
+.plan-status-paused {
+    background: #f3f0ff;
+    color: #5b4a9e;
+    border: 1px solid #c9bbf5;
+}
+
+.plan-cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.plan-card {
+    border: 2px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    background: var(--card-bg);
+    transition: border-color 0.15s;
+}
+.plan-card--current {
+    border-color: var(--primary);
+    background: var(--primary-light);
+}
+
+.plan-card-header {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.plan-card-name {
+    font-weight: 700;
+    font-size: 15px;
+}
+.plan-card-price {
+    font-size: 13px;
+    color: var(--text-muted);
+}
+
+.plan-features {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex: 1;
+}
+.plan-features li {
+    font-size: 13px;
+    color: var(--text);
+    padding-left: 16px;
+    position: relative;
+}
+.plan-features li::before {
+    content: '✓';
+    position: absolute;
+    left: 0;
+    color: var(--success);
+    font-size: 12px;
+}
+
+.plan-card-action { margin-top: auto; }
+
+.plan-badge-current {
+    display: block;
+    text-align: center;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--primary-dark);
+    background: var(--primary-light);
+    border-radius: 20px;
+    padding: 4px 0;
+}
+
+.plan-cancel-section {
+    border-top: 1px solid var(--border);
+    padding-top: 16px;
+}
+.plan-cancel-link {
+    background: none;
+    border: none;
+    color: var(--danger);
+    font-size: 13px;
+    cursor: pointer;
+    padding: 0;
+    text-decoration: underline;
+}
+.plan-cancel-link:hover { opacity: 0.8; }
+.plan-cancel-confirm p {
+    font-size: 13px;
+    color: var(--text);
+    margin-bottom: 12px;
+}
+.plan-cancel-confirm-actions {
+    display: flex;
+    gap: 8px;
+}
+
+@media (max-width: 600px) {
+    .plan-cards { grid-template-columns: 1fr; }
+    .plan-drawer-body { padding: 16px 16px 40px; }
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     .app-sidebar {

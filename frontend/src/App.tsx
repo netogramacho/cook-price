@@ -1,7 +1,8 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AppLoader } from './components/AppLoader'
 import { NotificationContainer } from './components/Notification'
+import { PlanModal } from './components/PlanModal'
 import { Login } from './pages/Login'
 import { Register } from './pages/Register'
 import { ForgotPassword } from './pages/ForgotPassword'
@@ -14,7 +15,7 @@ import { RecipeDetail } from './pages/RecipeDetail'
 import { Stock } from './pages/Stock'
 import { NotFound } from './pages/NotFound'
 import { isAuthenticated, isEmailVerified } from './lib/auth'
-import { subscribeLoading } from './lib/api'
+import { subscribeLoading, subscribePlanUpgrade } from './lib/api'
 import { useAppStore } from './store/useAppStore'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -35,13 +36,20 @@ function UnverifiedRoute({ children }: { children: React.ReactNode }) {
 
 export function App() {
   const setLoading = useAppStore(s => s.setLoading)
+  const [planModalOpen, setPlanModalOpen] = useState(false)
+  const [planModalMessage, setPlanModalMessage] = useState<string | null>(null)
 
   useEffect(() => subscribeLoading(setLoading), [setLoading])
+  useEffect(() => subscribePlanUpgrade(msg => {
+    setPlanModalMessage(msg)
+    setPlanModalOpen(true)
+  }), [])
 
   return (
     <BrowserRouter>
       <AppLoader />
       <NotificationContainer />
+      <PlanModal visible={planModalOpen} message={planModalMessage} onClose={() => { setPlanModalOpen(false); setPlanModalMessage(null) }} />
       <Routes>
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />

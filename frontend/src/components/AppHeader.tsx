@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { Modal } from './Modal'
+import { PlanModal } from './PlanModal'
 import { FormField } from './ui/FormField'
 import { ProfitMultiplierField } from './ui/ProfitMultiplierField'
 import { InvisibleCostField } from './ui/InvisibleCostField'
@@ -38,6 +39,7 @@ export function AppHeader() {
   const userName = getUser()?.name ?? ''
 
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [planModalOpen, setPlanModalOpen] = useState(false)
 
   const pwModal = useModal({ visible: false, loading: false, errors: {} as Record<string, string[]> })
   const [pwForm, setPwForm] = useState<ChangePasswordForm>({ current_password: '', password: '', password_confirmation: '' })
@@ -129,11 +131,15 @@ export function AppHeader() {
         </nav>
         <div className="sidebar-user">
           <span className="user-name">{userName}</span>
+          <span className="sidebar-plan-badge">{getUser()?.plan?.label ?? 'Gratuito'}</span>
+          <button className="btn btn-primary btn-sm btn-full" onClick={() => setPlanModalOpen(true)}>Meu Plano</button>
           <button className="btn btn-secondary btn-sm btn-full" onClick={openSettings}>Configurações</button>
           <button className="btn btn-secondary btn-sm btn-full" onClick={openChangePassword}>Alterar Senha</button>
           <button className="btn btn-secondary btn-sm btn-full" onClick={handleLogout}>Sair</button>
         </div>
       </aside>
+
+      <PlanModal visible={planModalOpen} onClose={() => setPlanModalOpen(false)} />
 
       <Modal
         visible={pwModal.state.visible}
