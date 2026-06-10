@@ -21,6 +21,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        ini_set('serialize_precision', -1);
         User::observe(UserObserver::class);
     }
 }
