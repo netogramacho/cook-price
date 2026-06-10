@@ -28,7 +28,7 @@ class MercadoPagoService
     {
         $payload = [
             'reason'         => "{$plan->label} - CookPrice",
-            'payer_email'    => $user->email,
+            'payer_email'    => config('mercadopago.payer_email_override') ?: $user->email,
             'back_url'       => $this->backUrl,
             'auto_recurring' => [
                 'frequency'          => 1,
