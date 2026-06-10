@@ -34,7 +34,7 @@ class MercadoPagoService
             'auto_recurring' => [
                 'frequency'          => 1,
                 'frequency_type'     => 'months',
-                'transaction_amount' => (float) $plan->price,
+                'transaction_amount' => round((float) $plan->price, 2),
                 'currency_id'        => 'BRL',
             ],
         ];
