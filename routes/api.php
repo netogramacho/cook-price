@@ -48,7 +48,7 @@ Route::middleware(['auth:sanctum', EnsureEmailIsVerified::class])->group(functio
     Route::get('ingredients/{ingredient}/movements',       [StockMovementController::class, 'index']);
     Route::post('recipes/{recipe}/produce',                [RecipeController::class, 'produce']);
 
-    Route::get('subscription',    [SubscriptionController::class, 'current']);
-    Route::post('subscription',   [SubscriptionController::class, 'store']);
-    Route::delete('subscription', [SubscriptionController::class, 'cancel']);
+    Route::get('subscriptions/current', [SubscriptionController::class, 'current']);
+    Route::post('subscriptions',        [SubscriptionController::class, 'store']);
+    Route::delete('subscriptions',      [SubscriptionController::class, 'cancel']);
 });
