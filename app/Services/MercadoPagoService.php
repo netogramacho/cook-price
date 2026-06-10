@@ -120,6 +120,14 @@ class MercadoPagoService
         $message = "id:{$dataId};request-id:{$requestId};ts:{$parts['ts']}";
         $hash    = hash_hmac('sha256', $message, $this->webhookSecret);
 
+        \Log::debug('MP webhook signature debug', [
+            'message'         => $message,
+            'computed_hash'   => $hash,
+            'expected_hash'   => $parts['v1'],
+            'secret_length'   => strlen($this->webhookSecret),
+            'match'           => hash_equals($hash, $parts['v1']),
+        ]);
+
         return hash_equals($hash, $parts['v1']);
     }
 
