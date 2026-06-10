@@ -116,28 +116,11 @@ class MercadoPagoService
             return false;
         }
 
-        $dataIdQuery = strtolower($request->query('data.id', ''));
-        $dataIdBody  = strtolower($request->input('data.id', ''));
+        $dataId  = strtolower($request->input('data.id', ''));
+        $message = "id:{$dataId};request-id:{$requestId};ts:{$parts['ts']};";
+        $hash    = hash_hmac('sha256', $message, $this->webhookSecret);
 
-        $messageQuery = "id:{$dataIdQuery};request-id:{$requestId};ts:{$parts['ts']};";
-        $messageBody  = "id:{$dataIdBody};request-id:{$requestId};ts:{$parts['ts']};";
-
-        $hashQuery = hash_hmac('sha256', $messageQuery, $this->webhookSecret);
-        $hashBody  = hash_hmac('sha256', $messageBody, $this->webhookSecret);
-
-        \Log::error('MP webhook signature debug', [
-            'data_id_query'  => $dataIdQuery,
-            'data_id_body'   => $dataIdBody,
-            'message_query'  => $messageQuery,
-            'message_body'   => $messageBody,
-            'hash_query'     => $hashQuery,
-            'hash_body'      => $hashBody,
-            'expected'       => $parts['v1'],
-            'match_query'    => hash_equals($hashQuery, $parts['v1']),
-            'match_body'     => hash_equals($hashBody, $parts['v1']),
-        ]);
-
-        return hash_equals($hashQuery, $parts['v1']) || hash_equals($hashBody, $parts['v1']);
+        return hash_equals($hash, $parts['v1']);
     }
 
     private function http(): \Illuminate\Http\Client\PendingRequest
