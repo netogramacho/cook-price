@@ -13,6 +13,7 @@ class IntegrationLog extends Model
 
     protected $fillable = [
         'service',
+        'access_token_hint',
         'direction',
         'type',
         'payload',

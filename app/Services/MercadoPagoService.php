@@ -28,8 +28,9 @@ class MercadoPagoService
     {
         $payload = [
             'reason'         => "{$plan->label} - CookPrice",
-            'payer_email'    => config('mercadopago.payer_email_override') ?: $user->email,
+            'payer_email'    => $user->email,
             'back_url'       => $this->backUrl,
+            'status'         => 'pending',
             'auto_recurring' => [
                 'frequency'          => 1,
                 'frequency_type'     => 'months',
@@ -78,10 +79,11 @@ class MercadoPagoService
     public function logIncomingWebhook(Request $request, bool $success, ?string $errorMessage = null): void
     {
         IntegrationLog::create([
-            'service'       => 'mercadopago',
-            'direction'     => 'incoming',
-            'type'          => 'webhook_' . ($request->input('type', 'unknown')),
-            'payload'       => [
+            'service'           => 'mercadopago',
+            'access_token_hint' => $this->tokenHint(),
+            'direction'         => 'incoming',
+            'type'              => 'webhook_' . ($request->input('type', 'unknown')),
+            'payload'           => [
                 'headers' => [
                     'x-signature'  => $request->header('x-signature'),
                     'x-request-id' => $request->header('x-request-id'),
@@ -130,19 +132,26 @@ class MercadoPagoService
         return $client;
     }
 
+    private function tokenHint(): string
+    {
+        $token = $this->accessToken;
+        return strlen($token) > 8 ? substr($token, 0, 16) . '****' : '****';
+    }
+
     private function logOutgoing(string $type, array $payload, Response $response): void
     {
         $success = $response->successful();
 
         IntegrationLog::create([
-            'service'       => 'mercadopago',
-            'direction'     => 'outgoing',
-            'type'          => $type,
-            'payload'       => $payload,
-            'response'      => $response->json() ?? ['raw' => $response->body()],
-            'status_code'   => $response->status(),
-            'success'       => $success,
-            'error_message' => $success ? null : ($response->json('message') ?? $response->body()),
+            'service'            => 'mercadopago',
+            'access_token_hint'  => $this->tokenHint(),
+            'direction'          => 'outgoing',
+            'type'               => $type,
+            'payload'            => $payload,
+            'response'           => $response->json() ?? ['raw' => $response->body()],
+            'status_code'        => $response->status(),
+            'success'            => $success,
+            'error_message'      => $success ? null : ($response->json('message') ?? $response->body()),
         ]);
     }
 }
