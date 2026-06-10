@@ -16,72 +16,73 @@ class WebhookController extends Controller
     {
         if (!$this->mp->validateWebhookSignature($request)) {
             $this->mp->logIncomingWebhook($request, false, 'Assinatura inválida.');
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['success' => false], 401);
         }
 
-        if ($request->input('type') !== 'preapproval') {
+        $type       = $request->input('type');
+        $resourceId = $request->input('data.id');
+
+        if ($type !== 'preapproval' || !$resourceId) {
             $this->mp->logIncomingWebhook($request, true);
-            return response()->json(['message' => 'OK'], 200);
-        }
-
-        $preapprovalId = $request->input('data.id');
-
-        if (!$preapprovalId) {
-            $this->mp->logIncomingWebhook($request, false, 'data.id ausente no payload.');
-            return response()->json(['message' => 'OK'], 200);
-        }
-
-        $subscription = Subscription::where('mp_preapproval_id', $preapprovalId)->first();
-
-        if (!$subscription) {
-            $this->mp->logIncomingWebhook($request, false, "Preapproval {$preapprovalId} não encontrado localmente.");
-            return response()->json(['message' => 'OK'], 200);
+            return response()->json(['success' => true]);
         }
 
         try {
-            $preapproval = $this->mp->getPreapproval($preapprovalId);
+            $preapproval = $this->mp->getPreapproval($resourceId);
         } catch (\RuntimeException $e) {
             $this->mp->logIncomingWebhook($request, false, $e->getMessage());
-            return response()->json(['message' => 'OK'], 200);
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 502);
+        }
+
+        $subscription = Subscription::where('mp_preapproval_id', $resourceId)->first();
+
+        if (!$subscription) {
+            $this->mp->logIncomingWebhook($request, false, "Assinatura não encontrada: {$resourceId}");
+            return response()->json(['success' => false], 404);
         }
 
         $mpStatus = $preapproval['status'] ?? null;
 
         match ($mpStatus) {
-            'authorized' => $this->handleAuthorized($subscription),
-            'cancelled'  => $this->handleCancelled($subscription),
-            'paused'     => $this->handlePaused($subscription),
-            default      => null,
+            'authorized' => $this->handleAuthorized($subscription, $preapproval),
+            'cancelled', 'canceled' => $this->handleCancelled($subscription),
+            'paused'    => $this->handlePaused($subscription),
+            default     => null,
         };
 
         $this->mp->logIncomingWebhook($request, true);
 
-        return response()->json(['message' => 'OK'], 200);
+        return response()->json(['success' => true]);
     }
 
-    private function handleAuthorized(Subscription $subscription): void
+    private function handleAuthorized(Subscription $subscription, array $preapproval): void
     {
         $subscription->update([
             'mp_status' => 'authorized',
             'starts_at' => now(),
-            'ends_at'   => now()->addMonth(),
         ]);
 
-        $user          = $subscription->user;
-        $user->plan_id = $subscription->plan_id;
-        $user->save();
+        $user = $subscription->user;
+        if ($user->plan_id !== $subscription->plan_id) {
+            $user->plan_id = $subscription->plan_id;
+            $user->save();
+        }
     }
 
     private function handleCancelled(Subscription $subscription): void
     {
+        if ($subscription->mp_status === 'cancelled') {
+            return;
+        }
+
         $subscription->update([
             'mp_status' => 'cancelled',
             'ends_at'   => now(),
         ]);
 
-        $freePlanId    = Plan::where('name', 'free')->value('id');
-        $user          = $subscription->user;
-        $user->plan_id = $freePlanId;
+        $freePlan              = Plan::where('name', 'free')->first();
+        $user                  = $subscription->user;
+        $user->plan_id         = $freePlan->id;
         $user->save();
     }
 

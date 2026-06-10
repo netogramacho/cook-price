@@ -116,9 +116,9 @@ class SubscriptionController extends Controller
             'ends_at'   => now(),
         ]);
 
-        $freePlanId = Plan::where('name', 'free')->value('id');
-        $user->plan_id = $freePlanId;
-        $user->save(); // dispara UserObserver
+        $freePlan      = Plan::where('name', 'free')->firstOrFail();
+        $user->plan_id = $freePlan->id;
+        $user->save();
 
         return response()->json([
             'success' => true,

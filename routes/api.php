@@ -39,10 +39,6 @@ Route::middleware(['auth:sanctum', EnsureEmailIsVerified::class])->group(functio
     Route::put('user/password', [UserController::class, 'changePassword']);
     Route::put('user/settings', [UserController::class, 'updateSettings']);
 
-    Route::get('subscriptions/current', [SubscriptionController::class, 'current']);
-    Route::post('subscriptions',        [SubscriptionController::class, 'store']);
-    Route::delete('subscriptions',      [SubscriptionController::class, 'cancel']);
-
     Route::apiResource('ingredients', IngredientController::class);
     Route::apiResource('recipes', RecipeController::class);
 
@@ -51,4 +47,8 @@ Route::middleware(['auth:sanctum', EnsureEmailIsVerified::class])->group(functio
     Route::patch('ingredients/{ingredient}/stock',         [StockMovementController::class, 'adjust']);
     Route::get('ingredients/{ingredient}/movements',       [StockMovementController::class, 'index']);
     Route::post('recipes/{recipe}/produce',                [RecipeController::class, 'produce']);
+
+    Route::get('subscription',    [SubscriptionController::class, 'current']);
+    Route::post('subscription',   [SubscriptionController::class, 'store']);
+    Route::delete('subscription', [SubscriptionController::class, 'cancel']);
 });
