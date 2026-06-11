@@ -58,10 +58,12 @@ export function PlanModal({ visible, onClose, message }: Props) {
   const [upgradingTo, setUpgradingTo] = useState<string | null>(null)
   const [cancelling, setCancelling] = useState(false)
   const [confirmCancel, setConfirmCancel] = useState(false)
+  const [countdown, setCountdown] = useState(5)
   const [isClosing, setIsClosing] = useState(false)
 
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const pollAttemptsRef = useRef(0)
+  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   function stopPolling() {
     if (pollRef.current) {
@@ -128,6 +130,29 @@ export function PlanModal({ visible, onClose, message }: Props) {
 
     return () => stopPolling()
   }, [visible, subscription?.mp_status])
+
+  useEffect(() => {
+    if (!confirmCancel) {
+      if (countdownRef.current) clearInterval(countdownRef.current)
+      setCountdown(5)
+      return
+    }
+
+    setCountdown(5)
+    countdownRef.current = setInterval(() => {
+      setCountdown(prev => {
+        if (prev <= 1) {
+          clearInterval(countdownRef.current!)
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+
+    return () => {
+      if (countdownRef.current) clearInterval(countdownRef.current)
+    }
+  }, [confirmCancel])
 
   async function handleUpgrade(planName: string) {
     setUpgradingTo(planName)
@@ -267,8 +292,8 @@ export function PlanModal({ visible, onClose, message }: Props) {
                         <button className="btn btn-secondary btn-sm" disabled={cancelling} onClick={() => setConfirmCancel(false)}>
                           Voltar
                         </button>
-                        <button className="btn btn-danger btn-sm" disabled={cancelling} onClick={handleCancel}>
-                          {cancelling ? 'Cancelando...' : 'Confirmar cancelamento'}
+                        <button className="btn btn-danger btn-sm" disabled={cancelling || countdown > 0} onClick={handleCancel}>
+                          {cancelling ? 'Cancelando...' : countdown > 0 ? `Confirmar cancelamento (${countdown})` : 'Confirmar cancelamento'}
                         </button>
                       </div>
                     </div>
