@@ -2,11 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\SubscriptionActivated;
+use App\Mail\SubscriptionCancelledByPaymentFailure;
 use App\Models\Plan;
 use App\Models\Subscription;
 use App\Services\MercadoPagoService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
 
 class WebhookController extends Controller
 {
@@ -107,6 +110,8 @@ class WebhookController extends Controller
             $user->plan_id = $subscription->plan_id;
             $user->save();
         }
+
+        Mail::to($user->email)->queue(new SubscriptionActivated($user, $subscription->plan));
     }
 
     private function handleCancelled(Subscription $subscription): void
@@ -131,6 +136,8 @@ class WebhookController extends Controller
         $user          = $subscription->user;
         $user->plan_id = $freePlan->id;
         $user->save();
+
+        Mail::to($user->email)->queue(new SubscriptionCancelledByPaymentFailure($user));
     }
 
     private function handlePaused(Subscription $subscription): void

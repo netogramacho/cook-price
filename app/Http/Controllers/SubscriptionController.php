@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\SubscriptionCancelledByUser;
 use App\Models\Plan;
 use App\Models\Subscription;
 use App\Services\MercadoPagoService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
 
 class SubscriptionController extends Controller
 {
@@ -128,6 +130,11 @@ class SubscriptionController extends Controller
             $user->plan_id = $freePlan->id;
             $user->save();
         }
+
+        Mail::to($user->email)->queue(new SubscriptionCancelledByUser(
+            $user,
+            $subscription->current_period_end,
+        ));
 
         return response()->json([
             'success' => true,
