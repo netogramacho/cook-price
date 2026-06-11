@@ -9,6 +9,7 @@ use App\Services\MercadoPagoService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Validation\Rule;
 
 class SubscriptionController extends Controller
 {
@@ -35,7 +36,7 @@ class SubscriptionController extends Controller
     public function store(Request $request): JsonResponse
     {
         $request->validate([
-            'plan' => ['required', 'in:basic,pro'],
+            'plan' => ['required', Rule::in(Plan::paidNames())],
         ]);
 
         $user = $request->user()->load('plan');

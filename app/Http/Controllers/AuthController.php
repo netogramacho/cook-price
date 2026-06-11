@@ -14,7 +14,7 @@ class AuthController extends Controller
 {
     public function register(RegisterRequest $request): JsonResponse
     {
-        $free_plan_id = Plan::where('name', 'free')->value('id');
+        $free_plan_id = Plan::free()->id;
 
         $user = User::create([
             'name'     => $request->name,

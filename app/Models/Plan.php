@@ -22,4 +22,19 @@ class Plan extends Model
         'has_stock_history' => 'boolean',
         'has_production'    => 'boolean',
     ];
+
+    public static function free(): self
+    {
+        return static::where('name', 'free')->firstOrFail();
+    }
+
+    public static function allNames(): array
+    {
+        return static::pluck('name')->toArray();
+    }
+
+    public static function paidNames(): array
+    {
+        return static::where('name', '!=', 'free')->pluck('name')->toArray();
+    }
 }

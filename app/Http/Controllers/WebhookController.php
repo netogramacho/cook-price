@@ -132,7 +132,7 @@ class WebhookController extends Controller
             'ends_at'   => now(),
         ]);
 
-        $freePlan      = Plan::where('name', 'free')->first();
+        $freePlan      = Plan::free();
         $user          = $subscription->user;
         $user->plan_id = $freePlan->id;
         $user->save();

@@ -14,7 +14,7 @@ class ExpireSubscriptions extends Command
 {
     public function handle(): void
     {
-        $freePlan = Plan::where('name', 'free')->firstOrFail();
+        $freePlan = Plan::free();
 
         $expired = Subscription::where('cancel_at_period_end', true)
             ->where('current_period_end', '<=', now())

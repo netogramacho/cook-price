@@ -6,6 +6,7 @@ use App\Models\Plan;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class AdminController extends Controller
 {
@@ -20,7 +21,7 @@ class AdminController extends Controller
         }
 
         $request->validate([
-            'plan' => ['required', 'in:free,basic,pro'],
+            'plan' => ['required', Rule::in(Plan::allNames())],
         ]);
 
         $user = User::find($userId);
@@ -33,7 +34,7 @@ class AdminController extends Controller
             ], 404);
         }
 
-        $plan = Plan::where('name', $request->plan)->first();
+        $plan = Plan::where('name', $request->plan)->firstOrFail();
 
         $user->plan_id = $plan->id;
         $user->save(); // dispara UserObserver::updated()
