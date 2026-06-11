@@ -111,19 +111,28 @@ class SubscriptionController extends Controller
             ], 502);
         }
 
+        $endsAt = $subscription->current_period_end ?? now();
+
         $subscription->update([
-            'mp_status' => 'cancelled',
-            'ends_at'   => now(),
+            'mp_status'            => 'cancelled',
+            'cancel_at_period_end' => true,
+            'ends_at'              => $endsAt,
         ]);
 
-        $freePlan      = Plan::where('name', 'free')->firstOrFail();
-        $user->plan_id = $freePlan->id;
-        $user->save();
+        $message = $subscription->current_period_end
+            ? 'Assinatura cancelada. Você ainda tem acesso ao plano até ' . $endsAt->format('d/m/Y') . '.'
+            : 'Assinatura cancelada. Seu plano foi revertido para Gratuito.';
+
+        if (!$subscription->current_period_end) {
+            $freePlan      = Plan::where('name', 'free')->firstOrFail();
+            $user->plan_id = $freePlan->id;
+            $user->save();
+        }
 
         return response()->json([
             'success' => true,
-            'data'    => null,
-            'message' => 'Assinatura cancelada. Seu plano foi revertido para Gratuito.',
+            'data'    => ['ends_at' => $endsAt],
+            'message' => $message,
         ]);
     }
 }

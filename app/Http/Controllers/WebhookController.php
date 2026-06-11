@@ -57,9 +57,15 @@ class WebhookController extends Controller
 
     private function handleAuthorized(Subscription $subscription, array $preapproval): void
     {
+        $nextPaymentDate = isset($preapproval['next_payment_date'])
+            ? \Carbon\Carbon::parse($preapproval['next_payment_date'])
+            : null;
+
         $subscription->update([
-            'mp_status' => 'authorized',
-            'starts_at' => now(),
+            'mp_status'          => 'authorized',
+            'starts_at'          => now(),
+            'cancel_at_period_end' => false,
+            'current_period_end' => $nextPaymentDate,
         ]);
 
         $user = $subscription->user;
@@ -75,14 +81,21 @@ class WebhookController extends Controller
             return;
         }
 
+        // Se foi o usuário que cancelou pelo app, o acesso já está controlado pelo
+        // comando app:expire-subscriptions — não reverte o plano agora.
+        if ($subscription->cancel_at_period_end) {
+            return;
+        }
+
+        // Cancelamento iniciado pelo MP (ex: falha de pagamento) — reverte imediatamente.
         $subscription->update([
             'mp_status' => 'cancelled',
             'ends_at'   => now(),
         ]);
 
-        $freePlan              = Plan::where('name', 'free')->first();
-        $user                  = $subscription->user;
-        $user->plan_id         = $freePlan->id;
+        $freePlan      = Plan::where('name', 'free')->first();
+        $user          = $subscription->user;
+        $user->plan_id = $freePlan->id;
         $user->save();
     }
 
