@@ -64,6 +64,20 @@ class MercadoPagoService
         return $response->json();
     }
 
+    public function getAuthorizedPayment(string $authorizedPaymentId): array
+    {
+        $payload  = ['authorized_payment_id' => $authorizedPaymentId];
+        $response = $this->http()->get("https://api.mercadopago.com/preapproval/authorized_payment/{$authorizedPaymentId}");
+
+        $this->logOutgoing('get_authorized_payment', $payload, $response);
+
+        if ($response->failed()) {
+            throw new \RuntimeException('Erro ao consultar pagamento autorizado no MercadoPago.');
+        }
+
+        return $response->json();
+    }
+
     public function cancelPreapproval(string $preapprovalId): void
     {
         $payload  = ['preapproval_id' => $preapprovalId, 'status' => 'cancelled'];

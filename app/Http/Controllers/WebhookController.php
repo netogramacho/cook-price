@@ -22,37 +22,71 @@ class WebhookController extends Controller
         $type       = $request->input('type');
         $resourceId = $request->input('data.id');
 
-        if ($type !== 'subscription_preapproval' || !$resourceId) {
+        if (!$resourceId || !in_array($type, ['subscription_preapproval', 'subscription_authorized_payment'])) {
             $this->mp->logIncomingWebhook($request, true);
             return response()->json(['success' => true]);
         }
 
         try {
-            $preapproval = $this->mp->getPreapproval($resourceId);
+            if ($type === 'subscription_authorized_payment') {
+                $this->processAuthorizedPayment($request, $resourceId);
+                return response()->json(['success' => true]);
+            }
+
+            $preapproval  = $this->mp->getPreapproval($resourceId);
+            $subscription = Subscription::where('mp_preapproval_id', $resourceId)->first();
+
+            if (!$subscription) {
+                $this->mp->logIncomingWebhook($request, false, "Assinatura não encontrada: {$resourceId}");
+                return response()->json(['success' => false], 404);
+            }
+
+            $mpStatus = $preapproval['status'] ?? null;
+
+            match ($mpStatus) {
+                'authorized'            => $this->handleAuthorized($subscription, $preapproval),
+                'cancelled', 'canceled' => $this->handleCancelled($subscription),
+                'paused'                => $this->handlePaused($subscription),
+                default                 => null,
+            };
         } catch (\RuntimeException $e) {
             $this->mp->logIncomingWebhook($request, false, $e->getMessage());
             return response()->json(['success' => false, 'message' => $e->getMessage()], 502);
         }
 
-        $subscription = Subscription::where('mp_preapproval_id', $resourceId)->first();
-
-        if (!$subscription) {
-            $this->mp->logIncomingWebhook($request, false, "Assinatura não encontrada: {$resourceId}");
-            return response()->json(['success' => false], 404);
-        }
-
-        $mpStatus = $preapproval['status'] ?? null;
-
-        match ($mpStatus) {
-            'authorized' => $this->handleAuthorized($subscription, $preapproval),
-            'cancelled', 'canceled' => $this->handleCancelled($subscription),
-            'paused'    => $this->handlePaused($subscription),
-            default     => null,
-        };
-
         $this->mp->logIncomingWebhook($request, true);
 
         return response()->json(['success' => true]);
+    }
+
+    private function processAuthorizedPayment(\Illuminate\Http\Request $request, string $authorizedPaymentId): void
+    {
+        $payment      = $this->mp->getAuthorizedPayment($authorizedPaymentId);
+        $preapprovalId = $payment['preapproval_id'] ?? null;
+
+        if (!$preapprovalId) {
+            $this->mp->logIncomingWebhook($request, false, "preapproval_id ausente no pagamento: {$authorizedPaymentId}");
+            return;
+        }
+
+        $subscription = Subscription::where('mp_preapproval_id', $preapprovalId)->first();
+
+        if (!$subscription) {
+            $this->mp->logIncomingWebhook($request, false, "Assinatura não encontrada para preapproval: {$preapprovalId}");
+            return;
+        }
+
+        $preapproval     = $this->mp->getPreapproval($preapprovalId);
+        $nextPaymentDate = isset($preapproval['next_payment_date'])
+            ? \Carbon\Carbon::parse($preapproval['next_payment_date'])
+            : null;
+
+        $subscription->update([
+            'current_period_end'   => $nextPaymentDate,
+            'cancel_at_period_end' => false,
+        ]);
+
+        $this->mp->logIncomingWebhook($request, true);
     }
 
     private function handleAuthorized(Subscription $subscription, array $preapproval): void
