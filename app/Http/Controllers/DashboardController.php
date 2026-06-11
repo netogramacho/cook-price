@@ -13,8 +13,8 @@ class DashboardController extends Controller
     {
         $user_id = $request->user()->id;
 
-        $recipes_count     = Recipe::where('user_id', $user_id)->count();
-        $ingredients_count = Ingredient::where('user_id', $user_id)->count();
+        $recipes_count     = Recipe::where('user_id', $user_id)->where('active', true)->count();
+        $ingredients_count = Ingredient::where('user_id', $user_id)->where('active', true)->count();
 
         $critical_stock = Ingredient::where('user_id', $user_id)
             ->whereNotNull('min_stock')
