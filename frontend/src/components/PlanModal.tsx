@@ -1,37 +1,43 @@
 import { useState, useEffect, useRef } from 'react'
 import { SubscriptionService, type SubscriptionData } from '../services/SubscriptionService'
+import { PlanService } from '../services/PlanService'
 import { UserService } from '../services/UserService'
 import { useAppStore } from '../store/useAppStore'
-import { getUser, setUser } from '../lib/auth'
-import type { UserPlan } from '../lib/auth'
+import { getUser, setUser, type UserPlan } from '../lib/auth'
 
-interface PlanDef {
-  name: 'free' | 'basic' | 'pro'
-  label: string
-  price: string
-  features: string[]
-}
-
-const PLANS: PlanDef[] = [
-  {
-    name: 'free',
-    label: 'Gratuito',
-    price: 'R$ 0/mês',
-    features: ['Até 3 receitas', 'Até 15 ingredientes', 'Custo básico das receitas'],
-  },
-  {
-    name: 'basic',
-    label: 'Básico',
-    price: 'R$ 19/mês',
-    features: ['Até 15 receitas', 'Até 60 ingredientes', 'Precificação e lucro', 'Controle de estoque', 'Registro de compras'],
-  },
-  {
-    name: 'pro',
-    label: 'Pro',
-    price: 'R$ 39/mês',
-    features: ['Receitas ilimitadas', 'Ingredientes ilimitados', 'Tudo do Básico', 'Histórico de movimentos', 'Controle de produção'],
-  },
+const FEATURE_MAP: { key: keyof UserPlan; label: string }[] = [
+  { key: 'has_stock',         label: 'Controle de estoque' },
+  { key: 'has_stock_history', label: 'Histórico de movimentos' },
+  { key: 'has_production',    label: 'Controle de produção' },
 ]
+
+function buildFeatures(plan: UserPlan): string[] {
+  const features: string[] = []
+
+  if (plan.max_recipes === null) {
+    features.push('Receitas ilimitadas')
+  } else {
+    features.push(`Até ${plan.max_recipes} receitas`)
+  }
+
+  if (plan.max_ingredients === null) {
+    features.push('Ingredientes ilimitados')
+  } else {
+    features.push(`Até ${plan.max_ingredients} ingredientes`)
+  }
+
+  if (plan.has_pricing) {
+    features.push('Precificação e lucro')
+  } else {
+    features.push('Custo básico das receitas')
+  }
+
+  for (const { key, label } of FEATURE_MAP) {
+    if (plan[key]) features.push(label)
+  }
+
+  return features
+}
 
 const POLL_INTERVAL_MS = 3000
 const POLL_MAX_ATTEMPTS = 10
@@ -45,10 +51,11 @@ interface Props {
 export function PlanModal({ visible, onClose, message }: Props) {
   const { success, error } = useAppStore()
 
+  const [plans, setPlans] = useState<UserPlan[]>([])
   const [currentPlan, setCurrentPlan] = useState<UserPlan | null>(getUser()?.plan ?? null)
   const [subscription, setSubscription] = useState<SubscriptionData | null>(null)
   const [loadingPlan, setLoadingPlan] = useState(false)
-  const [upgradingTo, setUpgradingTo] = useState<'basic' | 'pro' | null>(null)
+  const [upgradingTo, setUpgradingTo] = useState<string | null>(null)
   const [cancelling, setCancelling] = useState(false)
   const [confirmCancel, setConfirmCancel] = useState(false)
   const [isClosing, setIsClosing] = useState(false)
@@ -80,14 +87,17 @@ export function PlanModal({ visible, onClose, message }: Props) {
     }
 
     setLoadingPlan(true)
-    refreshSubscription()
+    Promise.all([
+      PlanService.getAll(),
+      refreshSubscription(),
+    ])
+      .then(([fetchedPlans]) => setPlans(fetchedPlans))
       .catch(() => error('Erro ao carregar dados do plano.'))
       .finally(() => setLoadingPlan(false))
 
     return () => stopPolling()
   }, [visible])
 
-  // Inicia polling automático quando status é pending
   useEffect(() => {
     if (!visible || subscription?.mp_status !== 'pending') {
       stopPolling()
@@ -119,10 +129,10 @@ export function PlanModal({ visible, onClose, message }: Props) {
     return () => stopPolling()
   }, [visible, subscription?.mp_status])
 
-  async function handleUpgrade(plan: 'basic' | 'pro') {
-    setUpgradingTo(plan)
+  async function handleUpgrade(planName: string) {
+    setUpgradingTo(planName)
     try {
-      const { checkout_url } = await SubscriptionService.subscribe(plan)
+      const { checkout_url } = await SubscriptionService.subscribe(planName as 'basic' | 'pro')
       window.location.href = checkout_url
     } catch (err) {
       const e = err as { message?: string }
@@ -166,7 +176,7 @@ export function PlanModal({ visible, onClose, message }: Props) {
     }, 220)
   }
 
-  const pendingOrPaused = subscription?.mp_status === 'pending' || subscription?.mp_status === 'paused'
+  const pendingOrPaused    = subscription?.mp_status === 'pending' || subscription?.mp_status === 'paused'
   const cancelledWithAccess = subscription?.mp_status === 'cancelled' && subscription?.cancel_at_period_end
 
   if (!visible && !isClosing) return null
@@ -180,9 +190,7 @@ export function PlanModal({ visible, onClose, message }: Props) {
         </div>
         <div className="plan-drawer-body">
           {message && (
-            <div className="plan-limit-message">
-              {message}
-            </div>
+            <div className="plan-limit-message">{message}</div>
           )}
           {loadingPlan ? (
             <p className="plan-loading">Carregando...</p>
@@ -207,19 +215,22 @@ export function PlanModal({ visible, onClose, message }: Props) {
               )}
 
               <div className="plan-cards">
-                {PLANS.map(plan => {
-                  const isCurrent = currentPlan?.name === plan.name
+                {plans.map(plan => {
+                  const isCurrent   = currentPlan?.name === plan.name
                   const isUpgrading = upgradingTo === plan.name
-                  const canUpgrade = plan.name !== 'free' && !isCurrent && !pendingOrPaused && !cancelledWithAccess
+                  const canUpgrade  = plan.name !== 'free' && !isCurrent && !pendingOrPaused && !cancelledWithAccess
+                  const features    = buildFeatures(plan)
 
                   return (
                     <div key={plan.name} className={`plan-card${isCurrent ? ' plan-card--current' : ''}`}>
                       <div className="plan-card-header">
                         <span className="plan-card-name">{plan.label}</span>
-                        <span className="plan-card-price">{plan.price}</span>
+                        <span className="plan-card-price">
+                          {Number(plan.price) === 0 ? 'Grátis' : `R$ ${Number(plan.price).toFixed(0)}/mês`}
+                        </span>
                       </div>
                       <ul className="plan-features">
-                        {plan.features.map(f => (
+                        {features.map(f => (
                           <li key={f}>{f}</li>
                         ))}
                       </ul>
@@ -230,7 +241,7 @@ export function PlanModal({ visible, onClose, message }: Props) {
                           <button
                             className="btn btn-primary btn-sm btn-full"
                             disabled={!!upgradingTo}
-                            onClick={() => handleUpgrade(plan.name as 'basic' | 'pro')}
+                            onClick={() => handleUpgrade(plan.name)}
                           >
                             {isUpgrading ? 'Redirecionando...' : 'Fazer Upgrade'}
                           </button>

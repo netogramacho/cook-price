@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\PlanController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\IngredientController;
 use App\Http\Controllers\PasswordResetController;
@@ -17,6 +18,8 @@ use App\Http\Middleware\EnsureEmailIsVerified;
 use Illuminate\Support\Facades\Route;
 
 Route::post('admin/users/{userId}/plan', [AdminController::class, 'updateUserPlan']);
+
+Route::get('plans', [PlanController::class, 'index']);
 
 Route::post('webhooks/mercadopago', [WebhookController::class, 'handleMercadoPago']);
 
