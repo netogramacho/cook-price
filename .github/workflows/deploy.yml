@@ -31,7 +31,7 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SSH_PORT }}
           script: |
-            cd ~/cookprice
+            cd ~/app.preciva
             rm -f public/index.html
             rm -rf public/build public/assets
             git pull origin main
@@ -45,7 +45,7 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SSH_PORT }}
           source: "public/index.html,public/assets/"
-          target: "~/cookprice/"
+          target: "~/app.preciva/"
 
       # Artisan commands após tudo no lugar
       - name: Run Laravel commands
@@ -56,7 +56,7 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SSH_PORT }}
           script: |
-            cd ~/cookprice
+            cd ~/app.preciva
             php ~/composer.phar install --no-dev --optimize-autoloader
             php artisan optimize:clear
             php artisan migrate --force
