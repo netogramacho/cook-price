@@ -26,10 +26,14 @@ class MercadoPagoService
 
     public function createPreapproval(User $user, Plan $plan): array
     {
+        $backUrl = str_contains($this->backUrl, '?')
+            ? $this->backUrl . '&subscription=pending'
+            : $this->backUrl . '?subscription=pending';
+
         $payload = [
             'reason'         => "{$plan->label} - CookPrice",
             'payer_email'    => $user->email,
-            'back_url'       => $this->backUrl,
+            'back_url'       => $backUrl,
             'status'         => 'pending',
             'auto_recurring' => [
                 'frequency'          => 1,

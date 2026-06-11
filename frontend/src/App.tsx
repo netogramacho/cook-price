@@ -45,6 +45,20 @@ export function App() {
     setPlanModalOpen(true)
   }), [])
 
+  // Abre o modal de plano automaticamente quando o usuário retorna do checkout do MP
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (!params.has('subscription')) return
+    if (!isAuthenticated()) return
+
+    params.delete('subscription')
+    const newUrl = [window.location.pathname, params.toString()].filter(Boolean).join('?')
+    window.history.replaceState(null, '', newUrl)
+
+    setPlanModalMessage('Confirmando seu pagamento, aguarde...')
+    setPlanModalOpen(true)
+  }, [])
+
   return (
     <BrowserRouter>
       <AppLoader />

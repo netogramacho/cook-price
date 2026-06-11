@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { SubscriptionService, type SubscriptionData } from '../services/SubscriptionService'
 import { UserService } from '../services/UserService'
 import { useAppStore } from '../store/useAppStore'
@@ -33,6 +33,9 @@ const PLANS: PlanDef[] = [
   },
 ]
 
+const POLL_INTERVAL_MS = 3000
+const POLL_MAX_ATTEMPTS = 10
+
 interface Props {
   visible: boolean
   onClose: () => void
@@ -48,22 +51,73 @@ export function PlanModal({ visible, onClose, message }: Props) {
   const [upgradingTo, setUpgradingTo] = useState<'basic' | 'pro' | null>(null)
   const [cancelling, setCancelling] = useState(false)
   const [confirmCancel, setConfirmCancel] = useState(false)
+  const [isClosing, setIsClosing] = useState(false)
+
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const pollAttemptsRef = useRef(0)
+
+  function stopPolling() {
+    if (pollRef.current) {
+      clearInterval(pollRef.current)
+      pollRef.current = null
+    }
+    pollAttemptsRef.current = 0
+  }
+
+  async function refreshSubscription() {
+    const data = await SubscriptionService.current()
+    setCurrentPlan(data.plan)
+    setSubscription(data.subscription)
+    const user = getUser()
+    if (user) setUser({ ...user, plan: data.plan })
+    return data
+  }
 
   useEffect(() => {
-    if (!visible) return
+    if (!visible) {
+      stopPolling()
+      return
+    }
 
     setLoadingPlan(true)
-    SubscriptionService.current()
-      .then(data => {
-        setCurrentPlan(data.plan)
-        setSubscription(data.subscription)
-        // Atualiza localStorage com o plano mais recente
-        const user = getUser()
-        if (user) setUser({ ...user, plan: data.plan })
-      })
+    refreshSubscription()
       .catch(() => error('Erro ao carregar dados do plano.'))
       .finally(() => setLoadingPlan(false))
+
+    return () => stopPolling()
   }, [visible])
+
+  // Inicia polling automático quando status é pending
+  useEffect(() => {
+    if (!visible || subscription?.mp_status !== 'pending') {
+      stopPolling()
+      return
+    }
+
+    pollAttemptsRef.current = 0
+    pollRef.current = setInterval(async () => {
+      pollAttemptsRef.current++
+
+      try {
+        const data = await refreshSubscription()
+
+        if (data.subscription?.mp_status === 'authorized') {
+          stopPolling()
+          success('Assinatura confirmada! Seu plano foi ativado.')
+          return
+        }
+
+        if (pollAttemptsRef.current >= POLL_MAX_ATTEMPTS) {
+          stopPolling()
+          error('Não foi possível confirmar o pagamento. Se o problema persistir, entre em contato.')
+        }
+      } catch {
+        stopPolling()
+      }
+    }, POLL_INTERVAL_MS)
+
+    return () => stopPolling()
+  }, [visible, subscription?.mp_status])
 
   async function handleUpgrade(plan: 'basic' | 'pro') {
     setUpgradingTo(plan)
@@ -71,7 +125,7 @@ export function PlanModal({ visible, onClose, message }: Props) {
       const { checkout_url } = await SubscriptionService.subscribe(plan)
       window.location.href = checkout_url
     } catch (err) {
-      const e = err as { message?: string; error_code?: string }
+      const e = err as { message?: string }
       error(e.message ?? 'Erro ao iniciar checkout.')
       setUpgradingTo(null)
     }
@@ -80,13 +134,22 @@ export function PlanModal({ visible, onClose, message }: Props) {
   async function handleCancel() {
     setCancelling(true)
     try {
-      await SubscriptionService.cancel()
+      const result = await SubscriptionService.cancel()
       const user = await UserService.get()
       setUser(user)
       setCurrentPlan(user.plan)
-      setSubscription(null)
+      await refreshSubscription()
       setConfirmCancel(false)
-      success('Assinatura cancelada. Plano revertido para Gratuito.')
+
+      const endsAt = result.ends_at
+        ? new Date(result.ends_at).toLocaleDateString('pt-BR')
+        : null
+
+      success(
+        endsAt
+          ? `Assinatura cancelada. Você ainda tem acesso até ${endsAt}.`
+          : 'Assinatura cancelada. Plano revertido para Gratuito.'
+      )
     } catch (err) {
       const e = err as { message?: string }
       error(e.message ?? 'Erro ao cancelar assinatura.')
@@ -94,8 +157,6 @@ export function PlanModal({ visible, onClose, message }: Props) {
       setCancelling(false)
     }
   }
-
-  const [isClosing, setIsClosing] = useState(false)
 
   function handleClose() {
     setIsClosing(true)
@@ -106,6 +167,7 @@ export function PlanModal({ visible, onClose, message }: Props) {
   }
 
   const pendingOrPaused = subscription?.mp_status === 'pending' || subscription?.mp_status === 'paused'
+  const cancelledWithAccess = subscription?.mp_status === 'cancelled' && subscription?.cancel_at_period_end
 
   if (!visible && !isClosing) return null
 
@@ -128,7 +190,7 @@ export function PlanModal({ visible, onClose, message }: Props) {
             <>
               {subscription?.mp_status === 'pending' && (
                 <div className="plan-status-alert plan-status-pending">
-                  Pagamento em análise. Aguarde a confirmação do MercadoPago.
+                  Aguardando confirmação do pagamento...
                 </div>
               )}
               {subscription?.mp_status === 'paused' && (
@@ -137,12 +199,18 @@ export function PlanModal({ visible, onClose, message }: Props) {
                   {subscription.ends_at ? new Date(subscription.ends_at).toLocaleDateString('pt-BR') : '—'}.
                 </div>
               )}
+              {cancelledWithAccess && (
+                <div className="plan-status-alert plan-status-paused">
+                  Assinatura cancelada. Você ainda tem acesso ao plano até{' '}
+                  {subscription.ends_at ? new Date(subscription.ends_at).toLocaleDateString('pt-BR') : '—'}.
+                </div>
+              )}
 
               <div className="plan-cards">
                 {PLANS.map(plan => {
                   const isCurrent = currentPlan?.name === plan.name
                   const isUpgrading = upgradingTo === plan.name
-                  const canUpgrade = plan.name !== 'free' && !isCurrent && !pendingOrPaused
+                  const canUpgrade = plan.name !== 'free' && !isCurrent && !pendingOrPaused && !cancelledWithAccess
 
                   return (
                     <div key={plan.name} className={`plan-card${isCurrent ? ' plan-card--current' : ''}`}>
@@ -177,7 +245,13 @@ export function PlanModal({ visible, onClose, message }: Props) {
                 <div className="plan-cancel-section">
                   {confirmCancel ? (
                     <div className="plan-cancel-confirm">
-                      <p>Tem certeza? Seu plano voltará para Gratuito imediatamente.</p>
+                      <p>
+                        Tem certeza? Você ainda terá acesso ao plano até o fim do período atual
+                        {subscription.current_period_end
+                          ? ` (${new Date(subscription.current_period_end).toLocaleDateString('pt-BR')})`
+                          : ''
+                        }.
+                      </p>
                       <div className="plan-cancel-confirm-actions">
                         <button className="btn btn-secondary btn-sm" disabled={cancelling} onClick={() => setConfirmCancel(false)}>
                           Voltar
