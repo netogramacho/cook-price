@@ -50,17 +50,17 @@ class SubscriptionController extends Controller
             ->where('mp_status', 'authorized')
             ->first();
 
-        if ($activeSubscription) {
-            return response()->json([
-                'success'    => false,
-                'message'    => 'Você já possui uma assinatura ativa. Cancele a atual antes de trocar de plano.',
-                'error_code' => 'SUBSCRIPTION_ALREADY_ACTIVE',
-            ], 422);
-        }
-
         $plan = Plan::where('name', $request->plan)->firstOrFail();
 
         try {
+            if ($activeSubscription) {
+                $this->mp->cancelPreapproval($activeSubscription->mp_preapproval_id);
+                $activeSubscription->update([
+                    'mp_status' => 'cancelled',
+                    'ends_at'   => now(),
+                ]);
+            }
+
             $preapproval = $this->mp->createPreapproval($user, $plan);
         } catch (\RuntimeException $e) {
             return response()->json([

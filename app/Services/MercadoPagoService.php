@@ -67,7 +67,7 @@ class MercadoPagoService
     public function cancelPreapproval(string $preapprovalId): void
     {
         $payload  = ['preapproval_id' => $preapprovalId, 'status' => 'cancelled'];
-        $response = $this->http()->patch("https://api.mercadopago.com/preapproval/{$preapprovalId}", ['status' => 'cancelled']);
+        $response = $this->http()->put("https://api.mercadopago.com/preapproval/{$preapprovalId}", ['status' => 'cancelled']);
 
         $this->logOutgoing('cancel_preapproval', $payload, $response);
 
