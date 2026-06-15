@@ -7,8 +7,7 @@ export interface StockItem {
   unit: string
   stock_quantity: number
   package_size: number
-  package_price: number
-  price_per_unit: number
+  last_price: number
 }
 
 export interface Movement {
@@ -47,5 +46,9 @@ export const StockService = {
     const res = await api.get<{ data: { data: Movement[]; current_page: number; last_page: number } }>(`/ingredients/${id}/movements?page=${page}`)
     const p = res.data
     return { items: p.data, meta: { current_page: p.current_page, last_page: p.last_page } }
+  },
+
+  async resetStock(id: string): Promise<void> {
+    await api.delete(`/ingredients/${id}/movements`)
   },
 }

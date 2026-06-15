@@ -30,6 +30,7 @@ const NAV_LINKS = [
   { path: '/ingredients',  label: '🥕 Ingredientes' },
   { path: '/recipes',      label: '📖 Receitas' },
   { path: '/stock',        label: '📦 Estoque' },
+  { path: '/purchases',    label: '🛒 Compras' },
 ]
 
 export function AppHeader() {

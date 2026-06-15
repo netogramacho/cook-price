@@ -5,6 +5,7 @@ interface Props {
   submitText?: string
   hideActions?: boolean
   closeOnOverlay?: boolean
+  wide?: boolean
   children: React.ReactNode
   onClose: () => void
   onSubmit?: () => void
@@ -17,6 +18,7 @@ export function Modal({
   submitText = 'Salvar',
   hideActions = false,
   closeOnOverlay = false,
+  wide = false,
   children,
   onClose,
   onSubmit,
@@ -25,7 +27,7 @@ export function Modal({
 
   return (
     <div className="modal-overlay" onClick={closeOnOverlay ? onClose : undefined}>
-      <div className="modal" onClick={e => e.stopPropagation()}>
+      <div className={wide ? 'modal modal--wide' : 'modal'} onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <h3>{title}</h3>
           <button className="modal-close" onClick={onClose}>&times;</button>

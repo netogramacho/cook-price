@@ -4,9 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\Stock\AdjustStockRequest;
 use App\Models\Ingredient;
+use App\Models\StockMovement;
 use App\Services\StockMovementService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class StockMovementController extends Controller
 {
@@ -63,6 +65,39 @@ class StockMovementController extends Controller
                 'min_stock'      => $ingredient->min_stock,
             ],
             'message' => 'Estoque ajustado com sucesso.',
+        ]);
+    }
+
+    public function reset(Request $request, Ingredient $ingredient): JsonResponse
+    {
+        if ($ingredient->user_id !== $request->user()->id) {
+            return response()->json([
+                'success'    => false,
+                'message'    => 'Ingrediente não encontrado.',
+                'error_code' => 'INGREDIENT_NOT_FOUND',
+            ], 404);
+        }
+
+        DB::transaction(function () use ($ingredient, $request) {
+            StockMovement::create([
+                'ingredient_id' => $ingredient->id,
+                'user_id'       => $request->user()->id,
+                'type'          => 'reset',
+                'quantity'      => -(float) $ingredient->stock_quantity,
+                'unit_price'    => 0,
+                'movement_date' => now()->toDateString(),
+                'notes'         => 'Estoque zerado manualmente.',
+            ]);
+
+            $ingredient->stock_quantity = 0;
+            $ingredient->last_price     = 0;
+            $ingredient->save();
+        });
+
+        return response()->json([
+            'success' => true,
+            'data'    => null,
+            'message' => 'Estoque do ingrediente resetado com sucesso.',
         ]);
     }
 

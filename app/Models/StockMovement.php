@@ -19,6 +19,9 @@ class StockMovement extends Model
         'quantity',
         'unit_price',
         'price_paid',
+        'num_packages',
+        'prev_stock_quantity',
+        'prev_last_price',
         'movement_date',
         'notes',
     ];
@@ -28,8 +31,11 @@ class StockMovement extends Model
         return [
             'quantity'      => 'decimal:3',
             'unit_price'    => 'decimal:6',
-            'price_paid'    => 'decimal:2',
-            'movement_date' => 'date',
+            'price_paid'          => 'decimal:2',
+            'num_packages'        => 'decimal:3',
+            'prev_stock_quantity' => 'decimal:3',
+            'prev_last_price'     => 'decimal:2',
+            'movement_date'       => 'date',
         ];
     }
 

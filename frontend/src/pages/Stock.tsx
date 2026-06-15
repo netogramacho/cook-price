@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { AppHeader } from '../components/AppHeader'
 import { Modal } from '../components/Modal'
+import { ConfirmModal } from '../components/ui/ConfirmModal'
 import { PageHeader } from '../components/ui/PageHeader'
 import { SearchBar } from '../components/ui/SearchBar'
 import { AsyncState } from '../components/ui/AsyncState'
@@ -17,6 +18,7 @@ import type { Ingredient } from '../services/IngredientService'
 import { useAppStore } from '../store/useAppStore'
 import { usePaginatedList } from '../hooks/usePaginatedList'
 import { useModal } from '../hooks/useModal'
+import { useConfirmAction } from '../hooks/useConfirmAction'
 import { handleApiError } from '../utils/apiError'
 import { fmtCurrency, fmtQuantity } from '../utils/formatters'
 import { parseDecimal } from '../utils/inputs'
@@ -44,11 +46,20 @@ export function Stock() {
 
   const [historyModal, setHistoryModal] = useState({ visible: false, loading: false, ingredient: null as StockItem | null, movements: [] as Movement[], currentPage: 1, hasMore: false, loadingMore: false })
 
+  const resetStock = useConfirmAction<StockItem>({
+    onConfirm: async (item) => {
+      await StockService.resetStock(item.id)
+      success('Estoque resetado com sucesso.')
+      refetch()
+    },
+    onError: error,
+  })
+
   const [quickCreate, setQuickCreate] = useState({ visible: false, initialName: '', forceType: null as null, targetIndex: -1 })
 
   function fmtRefPrice(item: StockItem) {
-    if (!item.package_price || !item.package_size) return '—'
-    return `R$ ${fmtCurrency(item.package_price)} / ${fmtQuantity(item.package_size)} ${item.unit}`
+    if (!item.last_price || !item.package_size) return '—'
+    return `R$ ${fmtCurrency(item.last_price)} / ${fmtQuantity(item.package_size)} ${item.unit}`
   }
 
   async function openPurchaseModal() {
@@ -187,6 +198,7 @@ export function Stock() {
                           <div className="td-actions">
                             <button className="btn btn-secondary btn-sm" onClick={() => openAdjust(item)}>Ajustar</button>
                             <button className="btn btn-secondary btn-sm" onClick={() => openHistory(item)}>Histórico</button>
+                            <button className="btn btn-danger btn-sm" onClick={() => resetStock.open(item)}>Resetar</button>
                           </div>
                         </td>
                       </tr>
@@ -310,6 +322,16 @@ export function Stock() {
         forceType={quickCreate.forceType}
         onCreated={onQuickCreated}
         onClose={() => setQuickCreate(q => ({ ...q, visible: false }))}
+      />
+
+      <ConfirmModal
+        visible={resetStock.confirm.visible}
+        title="Resetar Estoque"
+        message={<>Resetar o estoque de <strong>{resetStock.confirm.item?.name}</strong>? O histórico será preservado mas o estoque e preço voltarão a zero. Esta ação não pode ser desfeita.</>}
+        loading={resetStock.confirm.loading}
+        confirmText="Resetar"
+        onConfirm={resetStock.execute}
+        onClose={resetStock.close}
       />
     </div>
   )

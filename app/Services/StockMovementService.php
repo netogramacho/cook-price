@@ -27,15 +27,18 @@ class StockMovementService
         $novo_cmm = ($current_qty * $cmm_atual + $quantity * $unit_price) / ($current_qty + $quantity);
 
         $movement = StockMovement::create([
-            'ingredient_id' => $ingredient->id,
-            'user_id'       => $user->id,
-            'purchase_id'   => $purchase->id,
-            'type'          => 'purchase',
-            'quantity'      => $quantity,
-            'unit_price'    => $unit_price,
-            'price_paid'    => $price_per_pkg,
-            'movement_date' => $purchase->purchased_at,
-            'notes'         => $purchase->notes,
+            'ingredient_id'       => $ingredient->id,
+            'user_id'             => $user->id,
+            'purchase_id'         => $purchase->id,
+            'type'                => 'purchase',
+            'quantity'            => $quantity,
+            'unit_price'          => $unit_price,
+            'price_paid'          => $price_per_pkg,
+            'num_packages'        => $num_packages,
+            'prev_stock_quantity' => $ingredient->stock_quantity,
+            'prev_last_price'     => $ingredient->last_price,
+            'movement_date'       => $purchase->purchased_at,
+            'notes'               => $purchase->notes,
         ]);
 
         $ingredient->stock_quantity = $current_qty + $quantity;

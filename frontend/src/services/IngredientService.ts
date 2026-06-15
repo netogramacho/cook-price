@@ -6,9 +6,7 @@ export interface Ingredient {
   type: 'ingredient' | 'packaging'
   unit: string
   package_size: number
-  package_price: number
   last_price: number
-  price_per_unit: number
   stock_quantity: number
   min_stock?: number
 }

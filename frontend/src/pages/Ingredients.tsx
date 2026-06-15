@@ -71,7 +71,7 @@ export function Ingredients() {
     setForm({
       name: ingredient.name, type: ingredient.type, unit: ingredient.unit,
       package_size: String(ingredient.package_size),
-      last_price: fmtCurrency(ingredient.last_price ?? ingredient.package_price),
+      last_price: fmtCurrency(ingredient.last_price),
       min_stock: (ingredient as unknown as Record<string, unknown>).min_stock
         ? fmtQuantity((ingredient as unknown as Record<string, unknown>).min_stock as number) : '',
     })
@@ -127,7 +127,7 @@ export function Ingredients() {
                       <td><TypeBadge type={i.type} /></td>
                       <td>{i.unit}</td>
                       <td>{fmtQuantity(i.package_size)} {i.unit}</td>
-                      <td>R$ {fmtCurrency(i.package_price)}</td>
+                      <td>R$ {fmtCurrency(i.last_price)}</td>
                       <td>
                         <div className="td-actions">
                           <button className="btn btn-secondary btn-sm" onClick={() => openEdit(i)}>Editar</button>
