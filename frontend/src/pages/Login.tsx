@@ -1,3 +1,4 @@
+import { BrandLogo } from '../components/BrandLogo'
 import { useState, useEffect } from 'react'
 import { useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { FormField } from '../components/ui/FormField'

@@ -1,3 +1,4 @@
+import { BrandLogo } from '../components/BrandLogo'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { FormField } from '../components/ui/FormField'
