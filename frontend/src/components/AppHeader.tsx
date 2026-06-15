@@ -109,14 +109,14 @@ export function AppHeader() {
         <button className="sidebar-toggle" onClick={() => setSidebarOpen(o => !o)} aria-label="Menu">
           <span /><span /><span />
         </button>
-        <a href="/dashboard" className="header-brand">🍳 CookPrice</a>
+        <a href="/dashboard" className="header-brand">preciva</a>
       </div>
 
       {sidebarOpen && <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} />}
 
       <aside className={`app-sidebar${sidebarOpen ? ' sidebar-open' : ''}`}>
         <div className="sidebar-brand">
-          <a href="/dashboard" className="header-brand">🍳 CookPrice</a>
+          <a href="/dashboard" className="header-brand">preciva</a>
         </div>
         <nav className="sidebar-nav">
           {NAV_LINKS.map(link => (

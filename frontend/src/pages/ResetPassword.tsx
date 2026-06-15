@@ -46,7 +46,7 @@ export function ResetPassword() {
     return (
       <div className="auth-container">
         <div className="auth-card">
-          <h1 className="auth-logo">🍳 CookPrice</h1>
+          <h1 className="auth-logo">preciva</h1>
           <p style={{ color: '#dc2626', textAlign: 'center', marginBottom: '16px' }}>
             Link de recuperação inválido ou expirado.
           </p>
@@ -59,7 +59,7 @@ export function ResetPassword() {
   return (
     <div className="auth-container">
       <div className="auth-card">
-        <h1 className="auth-logo">🍳 CookPrice</h1>
+        <h1 className="auth-logo">preciva</h1>
         <p className="auth-subtitle">Criar nova senha</p>
         <form onSubmit={handleSubmit} noValidate>
           <FormField label="Nova senha" error={errors.password?.[0]}>

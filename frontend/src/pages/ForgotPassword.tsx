@@ -30,7 +30,7 @@ export function ForgotPassword() {
   return (
     <div className="auth-container">
       <div className="auth-card">
-        <h1 className="auth-logo">🍳 CookPrice</h1>
+        <h1 className="auth-logo">preciva</h1>
         <p className="auth-subtitle">Recuperar senha</p>
         {sent ? (
           <>
