@@ -1,3 +1,4 @@
+import { BrandLogo } from '../components/BrandLogo'
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { AuthService } from '../services/AuthService'
