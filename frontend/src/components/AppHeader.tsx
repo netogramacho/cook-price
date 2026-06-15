@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
+import { BrandLogo } from './BrandLogo'
 import { Modal } from './Modal'
 import { PlanModal } from './PlanModal'
 import { FormField } from './ui/FormField'
@@ -109,14 +110,14 @@ export function AppHeader() {
         <button className="sidebar-toggle" onClick={() => setSidebarOpen(o => !o)} aria-label="Menu">
           <span /><span /><span />
         </button>
-        <a href="/dashboard" className="header-brand">preciva</a>
+        <a href="/dashboard" className="header-brand"><BrandLogo size={20} /> Preciva</a>
       </div>
 
       {sidebarOpen && <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} />}
 
       <aside className={`app-sidebar${sidebarOpen ? ' sidebar-open' : ''}`}>
         <div className="sidebar-brand">
-          <a href="/dashboard" className="header-brand">preciva</a>
+          <a href="/dashboard" className="header-brand"><BrandLogo size={20} /> Preciva</a>
         </div>
         <nav className="sidebar-nav">
           {NAV_LINKS.map(link => (
