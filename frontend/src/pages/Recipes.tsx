@@ -20,6 +20,8 @@ import { IngredientService } from '../services/IngredientService'
 import type { Ingredient } from '../services/IngredientService'
 import { UserService } from '../services/UserService'
 import { useAppStore } from '../store/useAppStore'
+import { triggerPlanUpgrade } from '../lib/api'
+import { getUser } from '../lib/auth'
 import { usePaginatedList } from '../hooks/usePaginatedList'
 import { useModal } from '../hooks/useModal'
 import { useConfirmAction } from '../hooks/useConfirmAction'
@@ -184,14 +186,16 @@ export function Recipes() {
                     <strong>{r.name}</strong>
                     <span>
                       Custo total: R$ {fmtCurrency(r.total_cost)}
-                      &nbsp;·&nbsp;Por {r.yield_unit}: R$ {fmtCurrency((r as unknown as Record<string, unknown>).cost_per_yield as number)}
+                      {(r as unknown as Record<string, unknown>).cost_per_yield != null && (
+                        <>&nbsp;·&nbsp;Por {r.yield_unit}: R$ {fmtCurrency((r as unknown as Record<string, unknown>).cost_per_yield as number)}</>
+                      )}
                       {(r as unknown as Record<string, unknown>).suggested_price_per_yield != null && (
                         <>&nbsp;·&nbsp;Preço sugerido/{r.yield_unit}: R$ {fmtCurrency((r as unknown as Record<string, unknown>).suggested_price_per_yield as number)}</>
                       )}
                     </span>
                   </div>
                   <div className="recipe-actions">
-                    <button className="btn btn-primary btn-sm" onClick={() => setProduceRecipe(r)}>Produzir</button>
+                    <button className="btn btn-primary btn-sm" onClick={() => getUser()?.plan.has_production ? setProduceRecipe(r) : triggerPlanUpgrade('O registro de produções está disponível nos planos pagos.')}>Produzir</button>
                     <button className="btn btn-secondary btn-sm" onClick={() => navigate(`/recipes/${r.id}`)}>Ver</button>
                     <button className="btn btn-danger btn-sm" onClick={() => deleteRecipe.open(r)}>Excluir</button>
                   </div>

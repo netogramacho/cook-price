@@ -38,7 +38,7 @@ class RecipeController extends Controller
             return array_merge($recipe->toArray(), [
                 'total_cost'                => $cost['total_cost'],
                 'production_cost'           => $has_pricing ? $cost['production_cost']           : null,
-                'cost_per_yield'            => $cost['cost_per_yield'],
+                'cost_per_yield'            => $has_pricing ? $cost['cost_per_yield']            : null,
                 'suggested_price_per_yield' => $has_pricing ? $cost['suggested_price_per_yield'] : null,
             ]);
         });
@@ -191,7 +191,7 @@ class RecipeController extends Controller
             'profit_margin_pct'         => $has_pricing ? $cost['profit_margin_pct']         : null,
             'suggested_price'           => $has_pricing ? $cost['suggested_price']           : null,
             'total_cost'                => $cost['total_cost'],
-            'cost_per_yield'            => $cost['cost_per_yield'],
+            'cost_per_yield'            => $has_pricing ? $cost['cost_per_yield']            : null,
             'suggested_price_per_yield' => $has_pricing ? $cost['suggested_price_per_yield'] : null,
         ];
     }

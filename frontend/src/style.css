@@ -526,7 +526,10 @@ tr:hover td { background: #FDF5F5; }
     padding: 16px 20px;
     margin-bottom: 24px;
     display: flex;
-    gap: 40px;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: flex-start;
+    gap: 20px 28px;
 }
 .cost-item label {
     display: block;
@@ -537,15 +540,23 @@ tr:hover td { background: #FDF5F5; }
     color: var(--primary-dark);
     margin-bottom: 2px;
 }
-.cost-item strong { font-size: 22px; font-weight: 700; color: var(--primary-dark); }
+.cost-item strong { font-size: 18px; font-weight: 700; color: var(--primary-dark); }
 .cost-item span { font-size: 13px; color: var(--primary-dark); }
 .cost-item-highlight {
     background: var(--primary);
     border-radius: 8px;
     padding: 12px 16px;
+    text-align: center;
 }
 .cost-item-highlight label { color: #fff; }
-.cost-item-highlight strong { color: #fff; font-size: 26px; }
+.cost-item-highlight strong { color: #fff; font-size: 22px; }
+.cost-item-locked { cursor: pointer; }
+.cost-item-locked:hover { opacity: 0.75; }
+.cost-item-locked label { opacity: 0.7; }
+.cost-item-locked .locked-value { filter: blur(5px); user-select: none; }
+.locked-value-row { display: flex; align-items: center; gap: 6px; }
+.locked-eye { flex-shrink: 0; opacity: 0.55; color: var(--primary); }
+
 
 /* Ingredient rows in form */
 .ingredient-rows { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }

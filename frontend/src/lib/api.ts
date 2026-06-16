@@ -30,6 +30,10 @@ function notifyPlanUpgrade(message: string) {
   planUpgradeListeners.forEach(fn => fn(message))
 }
 
+export function triggerPlanUpgrade(message = '') {
+  notifyPlanUpgrade(message)
+}
+
 export class PlanError extends Error {
   constructor(message: string) {
     super(message)
