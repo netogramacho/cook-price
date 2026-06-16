@@ -10,6 +10,7 @@ import { TypeBadge } from '../components/ui/TypeBadge'
 import { ConfirmModal } from '../components/ui/ConfirmModal'
 import { AsyncState } from '../components/ui/AsyncState'
 import { IngredientAutocomplete } from '../components/IngredientAutocomplete'
+import { ProduceModal } from '../components/ProduceModal'
 import { RecipeService } from '../services/RecipeService'
 import type { Recipe, RecipeIngredient } from '../services/RecipeService'
 import { IngredientService } from '../services/IngredientService'
@@ -157,6 +158,7 @@ export function RecipeDetail() {
     }
   }
 
+  const [produceOpen, setProduceOpen] = useState(false)
   const ingredients = (recipe?.ingredients ?? []) as RecipeIngredient[]
 
   return (
@@ -176,6 +178,7 @@ export function RecipeDetail() {
                     <p className="recipe-meta">Rendimento: {fmtCurrency(recipe.yield)} {recipe.yield_unit}</p>
                   </div>
                   <div className="recipe-header-actions">
+                    <button className="btn btn-primary" onClick={() => setProduceOpen(true)}>Produzir</button>
                     <button className="btn btn-secondary" onClick={openEdit}>Editar</button>
                   </div>
                 </div>
@@ -284,6 +287,12 @@ export function RecipeDetail() {
         confirmText="Remover"
         onConfirm={removeIngredient.execute}
         onClose={removeIngredient.close}
+      />
+
+      <ProduceModal
+        recipe={produceOpen ? recipe : null}
+        onClose={() => setProduceOpen(false)}
+        onSuccess={() => setProduceOpen(false)}
       />
     </div>
   )

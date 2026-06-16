@@ -13,6 +13,7 @@ import { ProfitMultiplierField } from '../components/ui/ProfitMultiplierField'
 import { InvisibleCostField } from '../components/ui/InvisibleCostField'
 import { IngredientAutocomplete } from '../components/IngredientAutocomplete'
 import { QuickIngredientModal } from '../components/QuickIngredientModal'
+import { ProduceModal } from '../components/ProduceModal'
 import { RecipeService } from '../services/RecipeService'
 import type { Recipe } from '../services/RecipeService'
 import { IngredientService } from '../services/IngredientService'
@@ -53,6 +54,8 @@ export function Recipes() {
   const [packagingRows, setPackagingRows] = useState<IngredientRow[]>([])
 
   const [quickCreate, setQuickCreate] = useState({ visible: false, initialName: '', forceType: null as 'ingredient' | 'packaging' | null, targetIndex: -1, targetList: '' as 'ingredients' | 'packaging' })
+
+  const [produceRecipe, setProduceRecipe] = useState<Recipe | null>(null)
 
   const deleteRecipe = useConfirmAction<Recipe>({
     onConfirm: async (item) => {
@@ -188,6 +191,7 @@ export function Recipes() {
                     </span>
                   </div>
                   <div className="recipe-actions">
+                    <button className="btn btn-primary btn-sm" onClick={() => setProduceRecipe(r)}>Produzir</button>
                     <button className="btn btn-secondary btn-sm" onClick={() => navigate(`/recipes/${r.id}`)}>Ver</button>
                     <button className="btn btn-danger btn-sm" onClick={() => deleteRecipe.open(r)}>Excluir</button>
                   </div>
@@ -259,6 +263,12 @@ export function Recipes() {
           </>
         )}
       </Modal>
+
+      <ProduceModal
+        recipe={produceRecipe}
+        onClose={() => setProduceRecipe(null)}
+        onSuccess={() => setProduceRecipe(null)}
+      />
 
       <QuickIngredientModal
         visible={quickCreate.visible}

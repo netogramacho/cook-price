@@ -42,7 +42,7 @@ export const ProductionService = {
     return { items: p.data, meta: { current_page: p.current_page, last_page: p.last_page, total: p.total } }
   },
 
-  async create(data: { recipe_id: string; quantity_recipes: number; notes?: string }): Promise<Production> {
+  async create(data: { recipe_id: string; notes?: string }): Promise<Production> {
     const res = await api.post<{ data: Production }>('/productions', data)
     return res.data
   },

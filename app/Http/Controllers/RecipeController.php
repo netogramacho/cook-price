@@ -37,6 +37,7 @@ class RecipeController extends Controller
 
             return array_merge($recipe->toArray(), [
                 'total_cost'                => $cost['total_cost'],
+                'production_cost'           => $has_pricing ? $cost['production_cost']           : null,
                 'cost_per_yield'            => $cost['cost_per_yield'],
                 'suggested_price_per_yield' => $has_pricing ? $cost['suggested_price_per_yield'] : null,
             ]);

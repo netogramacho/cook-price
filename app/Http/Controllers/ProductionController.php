@@ -44,11 +44,10 @@ class ProductionController extends Controller
             ], 404);
         }
 
-        $costs            = $this->cost_service->calculate($recipe);
-        $quantity_recipes = (float) $request->quantity_recipes;
-        $total_yield      = round((float) $recipe->yield * $quantity_recipes, 3);
-        $total_cost       = round($costs['production_cost'] * $quantity_recipes, 2);
-        $unit_cost        = $total_yield > 0 ? round($total_cost / $total_yield, 4) : 0;
+        $costs       = $this->cost_service->calculate($recipe);
+        $total_yield = round((float) $recipe->yield, 3);
+        $total_cost  = round($costs['production_cost'], 2);
+        $unit_cost   = $total_yield > 0 ? round($total_cost / $total_yield, 4) : 0;
 
         $snapshot = [
             'recipe_name'               => $recipe->name,
@@ -75,7 +74,7 @@ class ProductionController extends Controller
         $production = Production::create([
             'user_id'          => $request->user()->id,
             'recipe_id'        => $recipe->id,
-            'quantity_recipes'  => $quantity_recipes,
+            'quantity_recipes'  => 1,
             'total_yield'      => $total_yield,
             'total_cost'       => $total_cost,
             'unit_cost'        => $unit_cost,
