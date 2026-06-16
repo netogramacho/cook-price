@@ -12,8 +12,6 @@ import { Dashboard } from './pages/Dashboard'
 import { Ingredients } from './pages/Ingredients'
 import { Recipes } from './pages/Recipes'
 import { RecipeDetail } from './pages/RecipeDetail'
-import { Stock } from './pages/Stock'
-import { Purchases } from './pages/Purchases'
 import { NotFound } from './pages/NotFound'
 import { isAuthenticated, isEmailVerified } from './lib/auth'
 import { subscribeLoading, subscribePlanUpgrade } from './lib/api'
@@ -76,8 +74,6 @@ export function App() {
         <Route path="/ingredients" element={<ProtectedRoute><Ingredients /></ProtectedRoute>} />
         <Route path="/recipes" element={<ProtectedRoute><Recipes /></ProtectedRoute>} />
         <Route path="/recipes/:id" element={<ProtectedRoute><RecipeDetail /></ProtectedRoute>} />
-        <Route path="/stock" element={<ProtectedRoute><Stock /></ProtectedRoute>} />
-        <Route path="/purchases" element={<ProtectedRoute><Purchases /></ProtectedRoute>} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>

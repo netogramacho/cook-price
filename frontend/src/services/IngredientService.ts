@@ -7,8 +7,6 @@ export interface Ingredient {
   unit: string
   package_size: number
   last_price: number
-  stock_quantity: number
-  min_stock?: number
 }
 
 interface PaginatedResult<T> {

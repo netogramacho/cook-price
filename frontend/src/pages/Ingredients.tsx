@@ -27,12 +27,12 @@ const TYPE_OPTIONS = [
 
 interface ModalForm {
   name: string; type: string; unit: string
-  package_size: string; last_price: string; min_stock: string
+  package_size: string; last_price: string
 }
 
 type ModalStep = 'type-select' | 'form'
 
-const emptyForm = (): ModalForm => ({ name: '', type: '', unit: '', package_size: '', last_price: '', min_stock: '' })
+const emptyForm = (): ModalForm => ({ name: '', type: '', unit: '', package_size: '', last_price: '' })
 
 export function Ingredients() {
   const { success, error } = useAppStore()
@@ -72,8 +72,6 @@ export function Ingredients() {
       name: ingredient.name, type: ingredient.type, unit: ingredient.unit,
       package_size: String(ingredient.package_size),
       last_price: fmtCurrency(ingredient.last_price),
-      min_stock: (ingredient as unknown as Record<string, unknown>).min_stock
-        ? fmtQuantity((ingredient as unknown as Record<string, unknown>).min_stock as number) : '',
     })
     modal.open({ step: 'form', editing: ingredient })
   }
@@ -85,7 +83,6 @@ export function Ingredients() {
         ...form,
         package_size: parseDecimal(form.package_size),
         last_price: parseDecimal(form.last_price),
-        min_stock: form.min_stock !== '' ? parseDecimal(form.min_stock) : null,
       }
       if (modal.state.editing) {
         await IngredientService.update(modal.state.editing.id, payload as unknown as Partial<Ingredient>)
@@ -178,9 +175,6 @@ export function Ingredients() {
             </FormField>
             <FormField label="Preço do Pacote (R$)" error={modal.state.errors.last_price?.[0]}>
               <NumericInput value={form.last_price} placeholder="0.00" onChange={v => setForm(f => ({ ...f, last_price: v }))} />
-            </FormField>
-            <FormField label={`Estoque Mínimo (${form.unit || 'unidade'}) — opcional`} error={modal.state.errors.min_stock?.[0]}>
-              <NumericInput value={form.min_stock} placeholder="Ex: 500" onChange={v => setForm(f => ({ ...f, min_stock: v }))} />
             </FormField>
           </>
         )}

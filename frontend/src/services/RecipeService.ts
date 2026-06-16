@@ -75,8 +75,4 @@ export const RecipeService = {
   async delete(id: string): Promise<void> {
     await api.delete(`/recipes/${id}`)
   },
-
-  async produce(id: string, data: { times: number; force?: boolean }): Promise<void> {
-    await api.post(`/recipes/${id}/produce`, data)
-  },
 }

@@ -41,8 +41,6 @@ export function RecipeDetail() {
   const editQtyModal = useModal({ visible: false, loading: false, errors: {} as Record<string, string[]>, ingredient: null as RecipeIngredient | null })
   const [editQtyForm, setEditQtyForm] = useState({ quantity: '' })
 
-  const produceModal = useModal({ visible: false, loading: false, errors: {} as Record<string, string[]>, hasStockWarning: false })
-  const [produceTimes, setProduceTimes] = useState(1)
 
   const removeIngredient = useConfirmAction<RecipeIngredient>({
     onConfirm: async (item) => {
@@ -159,37 +157,6 @@ export function RecipeDetail() {
     }
   }
 
-  async function produce() {
-    produceModal.startSubmit()
-    try {
-      await RecipeService.produce(id!, { times: Number(produceTimes) })
-      success('Produção registrada com sucesso.')
-      produceModal.close()
-      fetchRecipe()
-    } catch (err: unknown) {
-      const e = err as { errors?: Record<string, string[]>; message?: string }
-      produceModal.setErrors(e.errors ?? {})
-      produceModal.patch({ hasStockWarning: !!(e.errors as Record<string, unknown>)?.stock })
-      if (!e.errors) error(e.message ?? 'Erro ao registrar produção.')
-    } finally {
-      produceModal.setLoading(false)
-    }
-  }
-
-  async function forceProduceAnyway() {
-    produceModal.setLoading(true)
-    try {
-      await RecipeService.produce(id!, { times: Number(produceTimes), force: true })
-      success('Produção registrada com sucesso.')
-      produceModal.close()
-      fetchRecipe()
-    } catch (err: unknown) {
-      error((err as { message?: string }).message ?? 'Erro ao registrar produção.')
-    } finally {
-      produceModal.setLoading(false)
-    }
-  }
-
   const ingredients = (recipe?.ingredients ?? []) as RecipeIngredient[]
 
   return (
@@ -210,7 +177,6 @@ export function RecipeDetail() {
                   </div>
                   <div className="recipe-header-actions">
                     <button className="btn btn-secondary" onClick={openEdit}>Editar</button>
-                    <button className="btn btn-primary" onClick={() => { produceModal.open({ hasStockWarning: false }); setProduceTimes(1) }}>Produzir</button>
                   </div>
                 </div>
 
@@ -308,29 +274,6 @@ export function RecipeDetail() {
         <FormField label="Quantidade" error={editQtyModal.state.errors['ingredients.0.quantity']?.[0]}>
           <NumericInput value={editQtyForm.quantity} onChange={v => setEditQtyForm({ quantity: v })} />
         </FormField>
-      </Modal>
-
-      <Modal visible={produceModal.state.visible} title="Registrar Produção" loading={produceModal.state.loading} hideActions={produceModal.state.hasStockWarning} submitText="Produzir" onClose={produceModal.close} onSubmit={produce}>
-        <p className="step-hint">O estoque dos ingredientes será deduzido conforme as quantidades da receita.</p>
-        <div className="form-group">
-          <label>Quantas vezes produzir?</label>
-          <input type="number" min="1" step="1" value={produceTimes} onChange={e => setProduceTimes(Number(e.target.value))} />
-        </div>
-        {produceModal.state.hasStockWarning && (
-          <div className="produce-warning">
-            <p className="produce-warning-title">Estoque insuficiente para alguns ingredientes:</p>
-            <ul className="produce-error-list">
-              {((produceModal.state.errors as Record<string, string[]>).stock ?? []).map((msg: string) => <li key={msg}>{msg}</li>)}
-            </ul>
-            <p className="produce-warning-hint">Os ingredientes com falta de estoque serão zerados. Deseja continuar mesmo assim?</p>
-            <div className="modal-actions">
-              <button type="button" className="btn btn-secondary" onClick={produceModal.close}>Cancelar</button>
-              <button type="button" className="btn btn-primary" disabled={produceModal.state.loading} onClick={forceProduceAnyway}>
-                {produceModal.state.loading ? 'Salvando...' : 'Produzir mesmo assim'}
-              </button>
-            </div>
-          </div>
-        )}
       </Modal>
 
       <ConfirmModal
