@@ -6,6 +6,7 @@ use App\Http\Controllers\PlanController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\IngredientController;
 use App\Http\Controllers\PasswordResetController;
+use App\Http\Controllers\ProductionController;
 use App\Http\Controllers\RecipeController;
 use App\Http\Controllers\SubscriptionController;
 use App\Http\Controllers\UserController;
@@ -41,6 +42,10 @@ Route::middleware(['auth:sanctum', EnsureEmailIsVerified::class])->group(functio
 
     Route::apiResource('ingredients', IngredientController::class);
     Route::apiResource('recipes', RecipeController::class);
+
+    Route::get('productions',                  [ProductionController::class, 'index']);
+    Route::post('productions',                 [ProductionController::class, 'store']);
+    Route::delete('productions/{production}',  [ProductionController::class, 'destroy']);
 
     Route::get('subscriptions/current', [SubscriptionController::class, 'current']);
     Route::post('subscriptions',        [SubscriptionController::class, 'store']);

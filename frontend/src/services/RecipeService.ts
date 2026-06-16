@@ -11,6 +11,7 @@ export interface Recipe {
   ingredients_cost: number
   packaging_cost: number
   total_cost: number
+  production_cost: number | null
   sale_price: number
   ingredients?: RecipeIngredient[]
   packaging?: RecipePackaging[]
@@ -50,6 +51,11 @@ interface PaginatedResult<T> {
 }
 
 export const RecipeService = {
+  async getAll(): Promise<Recipe[]> {
+    const res = await api.get<{ data: { data: Recipe[] } }>('/recipes?per_page=100')
+    return res.data.data
+  },
+
   async getPaginated(page = 1, search = ''): Promise<PaginatedResult<Recipe>> {
     const params = new URLSearchParams({ page: String(page) })
     if (search) params.set('search', search)

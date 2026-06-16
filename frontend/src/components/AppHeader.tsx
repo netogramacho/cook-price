@@ -29,6 +29,7 @@ const NAV_LINKS = [
   { path: '/dashboard',    label: '📊 Dashboard' },
   { path: '/ingredients',  label: '🥕 Ingredientes' },
   { path: '/recipes',      label: '📖 Receitas' },
+  { path: '/producoes',    label: '🏭 Produções' },
 ]
 
 export function AppHeader() {
