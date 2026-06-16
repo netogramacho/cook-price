@@ -202,7 +202,7 @@ export function PlanModal({ visible, onClose, message }: Props) {
   }
 
   const pendingOrPaused    = subscription?.mp_status === 'pending' || subscription?.mp_status === 'paused'
-  const cancelledWithAccess = subscription?.mp_status === 'cancelled' && subscription?.cancel_at_period_end
+  const cancelledWithAccess = subscription?.mp_status === 'cancelled' && !!subscription?.cancel_at_period_end
 
   if (!visible && !isClosing) return null
 

@@ -13,12 +13,15 @@ import { ProfitMultiplierField } from '../components/ui/ProfitMultiplierField'
 import { InvisibleCostField } from '../components/ui/InvisibleCostField'
 import { IngredientAutocomplete } from '../components/IngredientAutocomplete'
 import { QuickIngredientModal } from '../components/QuickIngredientModal'
+import { ProduceModal } from '../components/ProduceModal'
 import { RecipeService } from '../services/RecipeService'
 import type { Recipe } from '../services/RecipeService'
 import { IngredientService } from '../services/IngredientService'
 import type { Ingredient } from '../services/IngredientService'
 import { UserService } from '../services/UserService'
 import { useAppStore } from '../store/useAppStore'
+import { triggerPlanUpgrade } from '../lib/api'
+import { getUser } from '../lib/auth'
 import { usePaginatedList } from '../hooks/usePaginatedList'
 import { useModal } from '../hooks/useModal'
 import { useConfirmAction } from '../hooks/useConfirmAction'
@@ -53,6 +56,8 @@ export function Recipes() {
   const [packagingRows, setPackagingRows] = useState<IngredientRow[]>([])
 
   const [quickCreate, setQuickCreate] = useState({ visible: false, initialName: '', forceType: null as 'ingredient' | 'packaging' | null, targetIndex: -1, targetList: '' as 'ingredients' | 'packaging' })
+
+  const [produceRecipe, setProduceRecipe] = useState<Recipe | null>(null)
 
   const deleteRecipe = useConfirmAction<Recipe>({
     onConfirm: async (item) => {
@@ -181,13 +186,16 @@ export function Recipes() {
                     <strong>{r.name}</strong>
                     <span>
                       Custo total: R$ {fmtCurrency(r.total_cost)}
-                      &nbsp;·&nbsp;Por {r.yield_unit}: R$ {fmtCurrency((r as unknown as Record<string, unknown>).cost_per_yield as number)}
+                      {(r as unknown as Record<string, unknown>).cost_per_yield != null && (
+                        <>&nbsp;·&nbsp;Por {r.yield_unit}: R$ {fmtCurrency((r as unknown as Record<string, unknown>).cost_per_yield as number)}</>
+                      )}
                       {(r as unknown as Record<string, unknown>).suggested_price_per_yield != null && (
                         <>&nbsp;·&nbsp;Preço sugerido/{r.yield_unit}: R$ {fmtCurrency((r as unknown as Record<string, unknown>).suggested_price_per_yield as number)}</>
                       )}
                     </span>
                   </div>
                   <div className="recipe-actions">
+                    <button className="btn btn-primary btn-sm" onClick={() => getUser()?.plan.has_production ? setProduceRecipe(r) : triggerPlanUpgrade('O registro de produções está disponível nos planos pagos.')}>Produzir</button>
                     <button className="btn btn-secondary btn-sm" onClick={() => navigate(`/recipes/${r.id}`)}>Ver</button>
                     <button className="btn btn-danger btn-sm" onClick={() => deleteRecipe.open(r)}>Excluir</button>
                   </div>
@@ -259,6 +267,12 @@ export function Recipes() {
           </>
         )}
       </Modal>
+
+      <ProduceModal
+        recipe={produceRecipe}
+        onClose={() => setProduceRecipe(null)}
+        onSuccess={() => setProduceRecipe(null)}
+      />
 
       <QuickIngredientModal
         visible={quickCreate.visible}

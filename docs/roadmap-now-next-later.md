@@ -1,475 +1,296 @@
-# CookPrice — Roadmap de Funcionalidades (Now / Next / Later)
+# Preciva — Roadmap (Now / Next / Later)
 
-> Metodologia: **Now** = crítico para o produto funcionar ou ser viável hoje · **Next** = melhoria significativa de valor após a base estar sólida · **Later** = expansão estratégica quando o produto estiver maduro.
->
-> _Revisado com varredura completa de backend (controllers, services, requests, models, rotas), frontend (todas as páginas, componentes, fluxos de UX), banco de dados (17 migrations) e documentação existente._
-
----
-
-## Estado Atual do Produto
-
-### O que está implementado e funcionando
-- Autenticação completa (registro, login, logout via Sanctum)
-- CRUD de ingredientes e embalagens com paginação e busca
-- CRUD de receitas com vinculação de ingredientes em fluxo de 3 etapas
-- Cálculo de custo completo: custo por ingrediente, embalagens separadas, custo invisível (%), multiplicador de lucro, preço sugerido, margem derivada, custo/rendimento
-- CMM (Custo Médio Móvel) ponderado atualizado a cada compra
-- Controle de estoque: compras (atualizam CMM e estoque), ajuste manual, histórico de movimentações
-- Produção de receitas com dedução automática de estoque (modo `force` para estoque insuficiente)
-- Dashboard com contadores e lista de estoque crítico
-- Modal de configurações no cabeçalho: `invisible_cost_pct`, `profit_multiplier`, `disable_stock_control`
-- Troca de senha via modal no cabeçalho
-- Notificações toast globais, loader global, autocomplete de ingredientes, criação rápida de ingrediente inline
-
-### Infraestrutura técnica disponível mas não utilizada
-- Tabela `password_reset_tokens` existe (Laravel padrão) — sem UI nem e-mail configurado
-- Tabela `jobs`, `job_batches`, `failed_jobs` — fila de jobs pronta, nenhum job implementado
-- Tabela `sessions` e `cache` — prontas para uso
-- Tabela `personal_access_tokens` (Sanctum) — utilizada
+> **Now** = bloqueia o lançamento ou causa fricção grave hoje
+> **Next** = amplifica valor significativo após o produto estar no ar
+> **Later** = expansão estratégica quando a base de usuários estiver consolidada
 
 ---
 
-## NOW — Prioridade Máxima
+## Estado Atual do Produto (junho/2026)
 
-Itens que **bloqueiam o negócio ou causam fricção grave** na experiência do usuário hoje.
+**Autenticação** — Registro, login, logout, verificação de e-mail, recuperação de senha, troca de senha
 
----
+**Ingredientes** — CRUD com busca, preço por embalagem, unidade de medida, tipo (ingrediente/embalagem)
 
-### 1. Sistema de Planos e Assinaturas
+**Receitas** — CRUD em 3 etapas (dados → ingredientes → embalagens), busca por nome
 
-**Problema:** A documentação existente (`planos-funcionalidades.md`, `planos-implementacao.md`) detalha completamente um modelo de três tiers, mas **nenhuma linha de código foi implementada**. Não existe tabela `plans`, não existe `plan_id` em `users`, não existe nenhum gate de funcionalidade.
+**Cálculo de Custos** — Ingredientes, embalagem, custos invisíveis (%), custo de produção, preço sugerido por receita e por unidade, margem de lucro
 
-**O que foi planejado (já documentado internamente):**
-| Plano | Preço | Receitas | Ingredientes | Precificação | Estoque | Histórico | Produção |
-|-------|-------|----------|--------------|--------------|---------|-----------|----------|
-| Gratuito | R$ 0 | 3 | 15 | Não | Não | Não | Não |
-| Básico | R$ 19/mês | 15 | 60 | Sim | Não | Não | Não |
-| Pro | R$ 39/mês | Ilimitado | Ilimitado | Sim | Sim | Sim | Sim |
+**Planos e Monetização** — 3 tiers (Gratuito / Basic / Plus), gates por `has_pricing` e `has_production`, limites quantitativos, integração MercadoPago, drawer de upgrade com upsell contextual (blur + olhinho nos campos bloqueados)
 
-**O que precisa ser construído:**
-1. Migration: tabela `plans` (id, name, label, price, max_recipes, max_ingredients, has_pricing, has_stock, has_stock_history, has_production)
-2. Migration: coluna `plan_id` em `users` com FK
-3. Model `Plan` + relacionamento em `User`
-4. Seeder com os três planos padrão
-5. Gates no `RecipeController::store()` — verificar limite de receitas
-6. Gates no `IngredientController::store()` — verificar limite de ingredientes
-7. Gates no `StockController`, `PurchaseController` — verificar `has_stock`
-8. Gates no `StockMovementController::index()` — verificar `has_stock_history`
-9. Gates no `RecipeController::produce()` — verificar `has_production`
-10. `RecipeCostService`: nulificar campos de precificação se `!has_pricing`
-11. Exposição do plano atual em `GET /api/user`
-12. UI: página de planos, indicadores de limite, CTA de upgrade
+**Produções** — Registrar lote com snapshot imutável, histórico paginado, resumo diário e mensal, exclusão com confirmação
 
-**Por que agora:** Sem isso, o produto não tem como ser monetizado. É o bloqueador de negócio número um.
+**Identidade** — Rebrand para Preciva com logo SVG
 
 ---
 
-### 2. Fluxo de Recuperação de Senha
+## NOW — Crítico para o Lançamento
 
-**Problema:** A única forma de recuperar acesso é contatar suporte via WhatsApp (número hardcoded na página de login: `https://wa.me/5512981299109`). A tabela `password_reset_tokens` já existe no banco, mas não há UI, rota, nem driver de e-mail configurado.
+### 1. Ampliar Unidades de Medida
 
-**O que precisa ser construído:**
-- Configurar driver de e-mail (Mailgun, SES ou SMTP) no `.env`
-- Rota `POST /api/auth/forgot-password` + controller
-- Rota `POST /api/auth/reset-password` + controller (com token)
-- Página `/forgot-password` e `/reset-password` no frontend
-- E-mail transacional com link de reset
-- Remover ou substituir o link de WhatsApp na tela de login
+**Problema:** Só aceita `g`, `ml` e `un`. Confeiteiros compram em kg, L, cx, pacote. Quem tem 1 kg de farinha cadastra 1000 g e converte mentalmente — barreira real de adoção.
 
-**Por que agora:** Usuário que esquece a senha não tem como se recuperar sozinho. Isso gera abandono e churn.
+**O que fazer:**
+- Backend: campo `unit` livre (string) com lista de sugestões em vez de enum fechado
+- Frontend: autocomplete com sugestões (`g`, `kg`, `ml`, `L`, `un`, `cs`, `cx`, `pc`)
+- Retrocompatibilidade total com registros existentes
 
 ---
 
-### 3. Duplicar Receita
+### 2. Duplicar Receita
 
-**Problema:** Criar uma receita similar a uma existente exige redigitar todos os ingredientes manualmente. Não existe nenhuma implementação de duplicação em backend ou frontend.
+**Problema:** Criar variação de uma receita existente exige redigitar tudo. Quem faz brigadeiro tradicional e de Nutella precisa de duplicação.
 
-**O que precisa ser construído:**
-- `POST /api/recipes/{id}/duplicate` — clona receita com sufixo "— Cópia", replica todos os `recipe_ingredients`
-- Botão "Duplicar" na lista de receitas e no detalhe da receita
-- Modal de confirmação simples antes de duplicar
-
-**Por que agora:** É uma das ações mais frequentes em produtos de culinária. A ausência gera frustração direta.
+**O que fazer:**
+- `POST /api/recipes/{id}/duplicate` — clona com sufixo "— Cópia", replica todos os ingredientes
+- Botão "Duplicar" na lista e no detalhe da receita
 
 ---
 
-### 4. Ampliar Unidades de Medida
+### 3. Onboarding para Novos Usuários
 
-**Problema:** O sistema aceita apenas 3 unidades: `g`, `ml` e `un`. Produtores trabalham com kg, L, colher de sopa (cs), xícara, etc. A limitação está no enum do frontend (select fixo) e na validação do backend (`in:[g, ml, un]`).
+**Problema:** Novo usuário vê dashboard vazio sem orientação. Onboarding ruim = abandono na primeira sessão.
 
-**Impacto real:** Um usuário que compra 1 kg de farinha não consegue cadastrar "kg" — precisa cadastrar em gramas e lembrar de sempre converter mentalmente.
-
-**O que precisa ser construído:**
-- Backend: adicionar `kg`, `L`, `cs`, `cx`, `pc` (ou tornar campo livre com lista de sugestões)
-- Frontend: expandir o select de unidade ou mudar para campo com autocomplete + sugestões
-- Manter retrocompatibilidade com registros existentes em `g`/`ml`/`un`
-
-**Por que agora:** Limitação de UX que bloqueia adoção por parte de usuários que não trabalham só com gramas.
+**O que fazer:**
+- Estado vazio com instrução e CTA nas páginas Ingredientes, Receitas e Produções
+- Checklist de primeiros passos no dashboard: "Adicione um ingrediente → Crie uma receita → Registre uma produção"
+- Checklist some ao completar as etapas
 
 ---
 
-### 5. Onboarding e Estados Vazios Consistentes
+## NEXT — Alto Valor Após o Lançamento
 
-**Problema:** Algumas páginas têm estados vazios com dicas, outras não. Um novo usuário no dashboard vê contadores zerados sem nenhuma orientação de por onde começar.
+### 4. Catálogo de Produtos
 
-**O que precisa ser construído:**
-- Estado vazio com instrução e CTA em: Dashboard (sem ingredientes), Ingredientes (lista vazia), Receitas (lista vazia), Estoque (sem stock)
-- Checklist de primeiros passos no Dashboard: "Adicione um ingrediente → Crie uma receita → Registre seu estoque"
-- Destaque visual nos primeiros dias de conta
+**Descrição:** O confeiteiro compartilha um link com clientes mostrando seus produtos disponíveis, fotos e preços. Cada usuário tem uma página pública em `preciva.com.br/cardapio/{slug}`.
 
-**Por que agora:** Onboarding ruim = abandono na primeira sessão.
+É o feature com maior potencial de crescimento orgânico: cada catálogo compartilhado no WhatsApp e Instagram é um anúncio passivo do Preciva.
 
----
-
-## NEXT — Alta Prioridade
-
-Itens que **ampliam o valor** do produto de forma significativa. A base já funciona; agora é hora de tornar o CookPrice indispensável.
+**O que fazer:**
+- Configuração do catálogo: nome do negócio, descrição, link do WhatsApp, URL personalizada (slug)
+- Toggle por receita: "exibir no catálogo" com preço de venda configurável (independente do preço sugerido)
+- Página pública responsiva e bonita, sem necessidade de login do cliente
+- CTA "Pedir pelo WhatsApp" na página com mensagem pré-preenchida
+- Gates de plano: Gratuito (até 3 produtos, selo "Feito com Preciva"), Basic (todos os produtos, link personalizado), Plus (fotos, sem selo)
 
 ---
 
-### 6. Suite de Testes Automatizados
+### 5. Foto de Receita
 
-**Problema:** O repositório tem dois arquivos de teste (esqueletos padrão do Laravel) e zero cobertura real. Para uma aplicação de cálculo financeiro que usa CMM, cálculo de margem e dedução de estoque, ausência de testes é um risco concreto de regressão silenciosa.
+**Descrição:** Upload de imagem para cada receita — essencial para o catálogo, mas com valor standalone (fichas técnicas, organização visual).
 
-**Prioridade de cobertura:**
-- `RecipeCostService::calculate()` — edge cases: receita sem embalagens, multiplicador = 1, custo invisível = 0
-- `StockMovementService::purchase()` — CMM ponderado, estoque zero, compra de múltiplos pacotes
-- `StockMovementService::deduct()` e `adjust()` — quantidades negativas, stock zero
-- `RecipeController::produce()` — flags `force` e `disable_stock_control`
-- Authorization: garantir que user A não acessa recursos do user B
+**O que fazer:**
+- Upload de imagem no formulário de receita (aceitar JPG/PNG, redimensionar no backend)
+- Exibição na lista de receitas, detalhe da receita e catálogo público
+- Storage local com fallback para placeholder
 
 ---
 
-### 7. Custo no Ajuste de Estoque
+### 6. Simulação de Cenário de Precificação
 
-**Problema:** Quando o usuário faz um ajuste manual de estoque (`PATCH /api/ingredients/{id}/stock`), o `unit_price` é calculado com base no `last_price` atual do ingrediente — o usuário não pode informar um custo diferente. Isso faz o CMM derivar quando o ajuste representa uma compra informal ou transferência de outro lote.
+**Descrição:** "Se eu cobrar 4x em vez de 3x, quanto fica por unidade?" — hoje exige editar e salvar a receita para ver o efeito.
 
-**O que precisa ser construído:**
-- Campo opcional "Custo por unidade" no modal de ajuste de estoque
-- Se informado: usar esse valor no `StockMovement.unit_price` e recalcular CMM
-- `AdjustStockRequest`: adicionar `unit_price` como campo opcional
+**O que fazer:**
+- Slider ou campo inline de multiplicador no detalhe da receita
+- Recalculo em tempo real no frontend sem persistir
+- Comparação visual entre preço atual e simulado
 
 ---
 
-### 8. Valorização do Estoque (Inventory Valuation)
+### 7. Histórico de Produção por Receita
 
-**Descrição:** Mostrar o valor total do estoque em reais, calculado como `stock_quantity × (last_price / package_size)` para cada ingrediente.
+**Descrição:** O confeiteiro quer saber: "Quantas vezes produzi esse brigadeiro esse mês e quanto custou no total?" A informação existe mas só está acessível no `/producoes` global.
+
+**O que fazer:**
+- Seção "Histórico de Produções" no rodapé do detalhe da receita
+- Colunas: Data, Rendimento, Custo Total, Custo Unitário
+- Últimos 5 registros com link "Ver todos" para `/producoes` filtrado por receita
+
+---
+
+### 8. Relatório de Lucratividade
+
+**Descrição:** Qual receita tem maior margem? Qual consome mais custo? Essencial para quem quer escalar com inteligência.
+
+**O que fazer:**
+- Ranking de receitas por margem de lucro (% e valor absoluto por unidade)
+- Destaque para receitas com margem baixa (multiplicador < 2)
+- Participação de cada ingrediente no custo total da receita
+
+---
+
+### 9. Alerta de Variação de Preço de Ingrediente
+
+**Descrição:** Quando o preço do chocolate sobe 30%, o confeiteiro precisa saber imediatamente quais receitas foram impactadas e quanto.
+
+**O que fazer:**
+- Ao salvar novo preço de ingrediente, mostrar as receitas afetadas com variação de custo (antes vs. depois)
+- Sugestão de revisão de preço de venda para receitas com impacto significativo
+
+---
+
+### 10. Busca de Receitas por Ingrediente
+
+**Descrição:** "Quais receitas usam manteiga?" — não tem como saber hoje sem abrir cada uma.
+
+**O que fazer:**
+- Filtro por ingrediente na página de Receitas
+- Link reverso no detalhe do ingrediente: "Usado em X receitas" com lista
+
+---
+
+### 11. Ficha Técnica em PDF
+
+**Descrição:** Gerar ficha técnica da receita para impressão, arquivo ou compartilhar com equipe de produção.
+
+**O que fazer:**
+- `GET /api/recipes/{id}/pdf` com `barryvdh/laravel-dompdf`
+- Ficha com: nome, rendimento, lista de ingredientes (quantidades e subtotais), custo de produção, preço sugerido, margem
+- Botão "Exportar PDF" no detalhe da receita
+
+---
+
+### 12. Conversão de Unidades
+
+**Descrição:** Ingrediente cadastrado em kg, receita usa gramas — hoje exige conversão manual.
+
+**Depende de:** NOW #1 (Ampliar Unidades)
+
+**O que fazer:**
+- Mapa de conversões no backend (g ↔ kg, ml ↔ L)
+- Na receita: detectar incompatibilidade de unidade e converter automaticamente
+- Bloquear conversões inválidas (ex: g ↔ ml) com mensagem clara
+
+---
+
+## LATER — Expansão Estratégica
+
+### 13. Dashboard de Custos Avançado
+
+Análise histórica de custo de produção com gráficos por semana/mês, ingrediente de maior impacto, evolução de custo de uma receita ao longo do tempo, comparativo entre períodos.
+
+---
+
+### 14. Pedidos via Catálogo
+
+Ao receber interesse pelo catálogo, o confeiteiro registra o pedido no app: receita × quantidade × preço vendido. O sistema fecha o ciclo financeiro mostrando margem real (custo produzido vs. receita de venda).
+
+**Depende de:** NEXT #4 (Catálogo de Produtos)
+
+---
+
+### 15. Controle de Vendas e Faturamento
+
+Registro completo de vendas com cadastro de clientes, relatório de faturamento por período e margem real consolidada. Evolução natural dos pedidos do catálogo.
+
+**Depende de:** LATER #14 (Pedidos via Catálogo)
+
+---
+
+### 16. Notificações por E-mail
+
+Resumo semanal de produções e custos, alerta de ingrediente com variação de preço relevante. Usa sistema de filas já presente (tabela `jobs`).
+
+---
+
+### 17. Importação de Dados via CSV
+
+Migração facilitada para usuários vindos do Excel. Template para download, parser com validação e relatório de erros, importação de ingredientes e receitas.
+
+---
+
+### 18. Histórico de Preços de Ingrediente
+
+Gráfico de evolução do preço de cada ingrediente ao longo do tempo. Útil quando o confeiteiro atualiza preços com frequência e quer entender tendências.
+
+---
+
+### 19. Versionamento de Receitas
+
+Snapshot automático ao editar ingredientes. Comparação entre versões com variação de custo. Restaurar versão anterior.
+
+---
+
+### 20. Multi-usuário / Equipe
+
+Conta com múltiplos usuários e papéis (Admin, Operador, Leitura). Afeta auth em todo o sistema — complexidade alta, implementar por último entre os pré-estoque.
+
+---
+
+### 21. PWA / App Mobile
+
+Instalável na tela inicial. Acesso offline básico para consultar receitas e registrar produções sem internet. Depende de responsividade estável e base de usuários consolidada.
+
+---
+
+### 22. Integração com Nota Fiscal Eletrônica (NF-e)
+
+Importar XML de NF-e para registrar compras de ingredientes automaticamente. Depende de estoque V2.
+
+---
+
+### 23. Marketplace de Receitas
+
+Receitas públicas compartilhadas pela comunidade Preciva. "Usar esta receita" importa para a conta com custo calculado com os preços do próprio usuário. Avaliações e curadoria.
+
+---
+
+### 24. Controle de Estoque e Compras
+
+Removido do MVP por adicionar complexidade desnecessária para o micro confeiteiro. Retorna quando o produto tiver base consolidada e o módulo de vendas/pedidos estiver funcionando.
 
 **Inclui:**
-- Valor total na página de Estoque (header ou card de resumo)
-- Valor por ingrediente na tabela
-- Filtro por tipo (ingredientes vs. embalagens separados)
-- Indicação de itens sem preço cadastrado
+- CRUD de compras com atualização de CMM e histórico de preços
+- Ajuste manual de estoque com motivo
+- Histórico de movimentações por ingrediente
+- Estoque crítico no dashboard
+- Desconto automático de estoque ao registrar produção
+- Previsão de ruptura com base no histórico de consumo
 
 ---
 
-### 9. Busca de Receitas por Ingrediente
+## Resumo
 
-**Descrição:** "Quais receitas usam farinha de trigo?" — hoje não tem como descobrir sem abrir cada receita individualmente.
-
-**Inclui:**
-- Filtro "Ingrediente" na página de Receitas
-- Autocomplete de ingrediente para filtrar
-- Link reverso na página de detalhe do ingrediente: "Usado em X receitas"
-
----
-
-### 10. Histórico de Produção por Receita
-
-**Descrição:** Os movimentos de estoque do tipo `production` já existem e têm `recipe_id`, mas a página de detalhe da receita não mostra quando ela foi produzida nem quantas vezes.
-
-**Inclui:**
-- Seção "Histórico de Produção" na página de detalhe da receita
-- Colunas: Data, Vezes produzidas, Custo total no momento, Ingredientes deduzidos
-- Paginação
-
----
-
-### 11. Relatório de Lucratividade por Receita
-
-**Descrição:** Análise de rentabilidade do portfólio.
-
-**Inclui:**
-- Ranking de receitas por margem de lucro (% e valor absoluto)
-- Custo atual vs. preço sugerido vs. preço de venda real (quando implementado)
-- Impacto de cada ingrediente no custo total
-- Indicação de receitas "no vermelho" (multiplicador < 2, margem < 30%)
+| Prazo | # | Feature | Impacto |
+|-------|---|---------|---------|
+| **NOW** | 1 | Ampliar Unidades de Medida | Alto |
+| **NOW** | 2 | Duplicar Receita | Médio |
+| **NOW** | 3 | Onboarding / Estados Vazios | Alto |
+| **NEXT** | 4 | Catálogo de Produtos | Alto |
+| **NEXT** | 5 | Foto de Receita | Médio |
+| **NEXT** | 6 | Simulação de Precificação | Alto |
+| **NEXT** | 7 | Histórico de Produção por Receita | Médio |
+| **NEXT** | 8 | Relatório de Lucratividade | Alto |
+| **NEXT** | 9 | Alerta de Variação de Preço | Médio |
+| **NEXT** | 10 | Busca por Ingrediente | Médio |
+| **NEXT** | 11 | Ficha Técnica em PDF | Médio |
+| **NEXT** | 12 | Conversão de Unidades | Médio |
+| **LATER** | 13 | Dashboard de Custos Avançado | Alto |
+| **LATER** | 14 | Pedidos via Catálogo | Alto |
+| **LATER** | 15 | Controle de Vendas e Faturamento | Alto |
+| **LATER** | 16 | Notificações por E-mail | Médio |
+| **LATER** | 17 | Importação de Dados via CSV | Médio |
+| **LATER** | 18 | Histórico de Preços de Ingrediente | Médio |
+| **LATER** | 19 | Versionamento de Receitas | Baixo |
+| **LATER** | 20 | Multi-usuário / Equipe | Alto |
+| **LATER** | 21 | PWA / App Mobile | Alto |
+| **LATER** | 22 | Integração NF-e | Médio |
+| **LATER** | 23 | Marketplace de Receitas | Médio |
+| **LATER** | 24 | Controle de Estoque e Compras | Alto |
 
 ---
 
-### 12. Histórico de Preços de Ingrediente com Visualização
+## Concluído
 
-**Descrição:** A tabela `stock_movements` já guarda `unit_price` em cada compra — os dados existem. Falta uma UI para visualizar a evolução de preço ao longo do tempo.
-
-**Inclui:**
-- Gráfico de linha: preço por unidade × data da compra
-- Variação percentual entre última e penúltima compra
-- Custo médio dos últimos 30/60/90 dias
-- Acessível via modal de histórico já existente ou aba na página de ingrediente
-
----
-
-### 13. Alerta de Aumento de Preço de Ingrediente
-
-**Descrição:** Quando uma compra é registrada com preço por unidade significativamente maior que o CMM anterior (ex: +15%), alertar o usuário com o impacto nas receitas afetadas.
-
-**Inclui:**
-- Comparação automática com `last_price` anterior no `PurchaseController`
-- Lista de receitas impactadas com variação de custo estimada
-- Sugestão de revisar preço de venda
-- Threshold configurável (padrão: +15%)
+| Feature | Observação |
+|---------|------------|
+| ✅ Sistema de Planos e Assinaturas | Basic e Plus com MercadoPago |
+| ✅ Recuperação de Senha | Forgot/reset com e-mail |
+| ✅ Módulo de Produções | Registrar, histórico, resumo diário/mensal, snapshot imutável |
+| ✅ Gates de Funcionalidade | has_pricing, has_production, limites quantitativos |
+| ✅ Upsell Contextual | Blur + olhinho + drawer de planos nas features bloqueadas |
+| ✅ Rebrand para Preciva | Logo, nome, identidade visual |
 
 ---
 
-### 14. Exportação de Receita em PDF
-
-**Descrição:** Gerar ficha técnica da receita em PDF para imprimir, compartilhar ou arquivar.
-
-**Inclui:**
-- Ficha com: nome, rendimento, ingredientes (com quantidades e subtotais), custo total, preço sugerido por unidade, margem
-- Instalação do pacote `barryvdh/laravel-dompdf`
-- Rota `GET /api/recipes/{id}/pdf`
-- Botão "Exportar PDF" na página de detalhe da receita
-
----
-
-### 15. Exportação de Dados em CSV
-
-**Descrição:** Permitir que o usuário exporte seus dados para planilha.
-
-**Inclui:**
-- Exportar lista de ingredientes (nome, tipo, unidade, preço, estoque atual, valor em estoque)
-- Exportar lista de receitas com custos calculados
-- Exportar movimentações de estoque por período (filtro de data)
-- Links de download nas páginas correspondentes
-
----
-
-### 16. Links Clicáveis no Histórico de Movimentações
-
-**Problema:** Na coluna "Ref." do histórico de movimentações (modal de histórico no estoque), o nome da receita aparece como texto simples — não é um link. O usuário não pode navegar diretamente para a receita que gerou aquela dedução.
-
-**O que precisa ser construído:**
-- Tornar o nome da receita um link `<a href="/recipes/{recipe_id}">` no componente de histórico
-
----
-
-### 17. Controle de Fornecedores
-
-**Descrição:** Rastrear de qual fornecedor veio cada compra.
-
-**Inclui:**
-- CRUD de fornecedores (nome, contato, observações)
-- Campo "Fornecedor" opcional ao registrar uma compra
-- Filtro de movimentações por fornecedor
-- Comparativo de preços entre fornecedores para o mesmo ingrediente
-
----
-
-### 18. Conversão de Unidades
-
-**Descrição:** Suporte a conversão automática entre unidades compatíveis (g ↔ kg, ml ↔ L).
-
-**Inclui:**
-- Mapa de conversões no backend/frontend
-- Na receita: permitir inserir ingrediente em unidade diferente do cadastro (ex: ingrediente em kg, receita usa em gramas)
-- Exibir equivalência no detalhe da receita
-- Proteger contra conversões inválidas (g ↔ ml não converte)
-
----
-
-### 19. Produção em Lote (Batch)
-
-**Descrição:** Registrar produção de múltiplas receitas de uma vez em uma única operação.
-
-**Inclui:**
-- Selecionar N receitas + quantidades a produzir em uma tela
-- Verificar estoque disponível para todo o lote antes de confirmar
-- Deduzir estoque de todas as receitas em uma transação
-- Registro agrupado no histórico de movimentações
-
----
-
-## LATER — Visão Estratégica
-
-Itens de maior escopo que fazem sentido quando o produto tiver base de usuários consolidada e os fluxos core maduros.
-
----
-
-### 20. Importação de Dados via CSV
-
-**Descrição:** Migração facilitada para usuários vindos do Excel ou de outros sistemas.
-
-**Inclui:**
-- Template CSV para download (ingredientes, receitas)
-- Parser e validação de dados antes da importação
-- Relatório de erros e itens importados
-- Pacote Laravel para parsing de CSV/XLSX
-
----
-
-### 21. Previsão de Ruptura de Estoque
-
-**Descrição:** Estimar quando cada ingrediente vai acabar com base no histórico de produções.
-
-**Inclui:**
-- Taxa de consumo médio por período (últimos 30/60 dias)
-- Data estimada de ruptura por ingrediente
-- Alerta no dashboard de ingredientes que vão acabar em X dias
-- Sugestão de quantidade mínima de reposição
-
----
-
-### 22. Controle de Vendas e Pedidos
-
-**Descrição:** Registrar pedidos de clientes e vendas realizadas para fechar o ciclo financeiro.
-
-**Inclui:**
-- Cadastro de clientes
-- Registro de pedidos (receita × quantidade × preço vendido real)
-- Comparação automática entre custo de produção e preço de venda realizada
-- Relatório de faturamento e margem real por período
-- COGS (Custo dos Produtos Vendidos) calculado
-
----
-
-### 23. Rastreamento de Desperdício e Perdas
-
-**Descrição:** Distinguir ajustes de estoque normais de perdas reais (ingrediente vencido, quebra, etc.) para análise de custos ocultos.
-
-**Inclui:**
-- Tipo `waste` no enum de `stock_movements` (além de purchase/production/adjustment)
-- Campo "Motivo" obrigatório no registro de perda
-- Relatório de perdas por período e por ingrediente
-- Impacto das perdas no custo real de produção
-
----
-
-### 24. Multi-usuário e Equipe
-
-**Descrição:** Conta com múltiplos usuários com papéis diferentes.
-
-**Inclui:**
-- Convite por e-mail
-- Papéis: Administrador, Operador de Produção, Somente Leitura
-- Log de auditoria de ações por usuário
-- Integração com sistema de planos (Pro permite X membros)
-
----
-
-### 25. Versionamento de Receitas
-
-**Descrição:** Manter histórico de versões de receita para auditoria e comparação de custos ao longo do tempo.
-
-**Inclui:**
-- Snapshot automático ao editar ingredientes de uma receita
-- Comparação entre versões (ingredientes adicionados/removidos, variação de custo)
-- Restaurar versão anterior
-- Linha do tempo de alterações
-
----
-
-### 26. Notificações por E-mail
-
-**Descrição:** Alertas proativos enviados por e-mail.
-
-**Inclui:**
-- Alerta de estoque crítico (diário ou semanal)
-- Notificação de aumento de preço de ingrediente
-- Resumo semanal de produções e custos
-- Depende de driver de e-mail configurado (bloqueado pelo item #2)
-- Usar sistema de filas já presente (tabela `jobs`)
-
----
-
-### 27. App Mobile Nativo / PWA
-
-**Descrição:** Empacotamento como PWA instalável ou app nativo.
-
-**Inclui:**
-- Instalação na tela inicial do celular
-- Acesso offline básico (cache de receitas e ingredientes)
-- Notificações push para alertas de estoque crítico
-- Câmera para escanear código de barras de embalagens
-
----
-
-### 28. Integração com Nota Fiscal Eletrônica (NF-e)
-
-**Descrição:** Importar NF-e para registrar compras automaticamente.
-
-**Inclui:**
-- Upload de XML de NF-e
-- Parser automático de itens, quantidades e preços
-- Mapeamento de produto da nota para ingrediente cadastrado
-- Cria automaticamente uma `Purchase` com os itens mapeados
-
----
-
-### 29. Marketplace de Receitas / Comunidade
-
-**Descrição:** Espaço de receitas públicas compartilhadas pela comunidade.
-
-**Inclui:**
-- Publicar receita com visibilidade pública (custos omitidos)
-- Busca e filtro de receitas da comunidade
-- "Usar esta receita" — importa para a conta do usuário
-- Avaliações básicas
-
----
-
-## Resumo Visual
-
-| Prazo | # | Feature | Impacto | Complexidade | Observação |
-|-------|---|---------|---------|--------------|------------|
-| **NOW** | 1 | Sistema de Planos/Assinaturas | Negócio | Alta | Monetização bloqueada sem isso |
-| **NOW** | 2 | Recuperação de Senha | Alto | Baixa | Infra já existe no DB |
-| **NOW** | 3 | Duplicar Receita | Médio | Baixa | Ação frequente, sem implementação |
-| **NOW** | 4 | Ampliar Unidades de Medida | Alto | Baixa | Só 3 unidades hoje (g, ml, un) |
-| **NOW** | 5 | Onboarding / Estados Vazios | Alto | Baixa | Alguns existem, incompleto |
-| **NEXT** | 6 | Suite de Testes Automatizados | Risco | Média | Zero cobertura em app financeiro |
-| **NEXT** | 7 | Custo no Ajuste de Estoque | Médio | Baixa | CMM deriva sem isso |
-| **NEXT** | 8 | Valorização do Estoque | Médio | Baixa | Dados já disponíveis |
-| **NEXT** | 9 | Busca de Receitas por Ingrediente | Médio | Baixa | Caso de uso frequente |
-| **NEXT** | 10 | Histórico de Produção por Receita | Médio | Baixa | Dados já existem (stock_movements) |
-| **NEXT** | 11 | Relatório de Lucratividade | Alto | Média | Core do produto |
-| **NEXT** | 12 | Histórico de Preços com Gráfico | Médio | Baixa | Dados já existem |
-| **NEXT** | 13 | Alerta de Aumento de Preço | Alto | Baixa | Lógica simples, alto valor |
-| **NEXT** | 14 | Exportação PDF de Receita | Médio | Baixa | Precisa instalar dompdf |
-| **NEXT** | 15 | Exportação CSV | Médio | Baixa | Sem dependência nova |
-| **NEXT** | 16 | Links no Histórico de Movimentações | Baixo | Muito Baixa | Fix de UX pontual |
-| **NEXT** | 17 | Controle de Fornecedores | Médio | Média | Nova tabela necessária |
-| **NEXT** | 18 | Conversão de Unidades | Alto | Média | Depende de ampliar unidades (NOW #4) |
-| **NEXT** | 19 | Produção em Lote | Médio | Média | Lógica transacional |
-| **LATER** | 20 | Importação CSV | Médio | Alta | Precisará de parser |
-| **LATER** | 21 | Previsão de Ruptura de Estoque | Alto | Alta | Modelo estatístico |
-| **LATER** | 22 | Controle de Vendas e Pedidos | Alto | Alta | Novos módulos |
-| **LATER** | 23 | Rastreamento de Desperdício | Médio | Baixa | Novo tipo de movimento |
-| **LATER** | 24 | Multi-usuário / Equipe | Alto | Muito Alta | Redesign de auth |
-| **LATER** | 25 | Versionamento de Receitas | Médio | Alta | Sistema de snapshots |
-| **LATER** | 26 | Notificações por E-mail | Alto | Média | Depende de e-mail (NOW #2) + filas |
-| **LATER** | 27 | PWA / App Mobile Nativo | Alto | Muito Alta | Depende de responsividade estável |
-| **LATER** | 28 | Integração NF-e | Alto | Muito Alta | Parser XML complexo |
-| **LATER** | 29 | Marketplace de Receitas | Médio | Muito Alta | Features sociais |
-
----
-
-## Dependências entre itens
-
-```
-NOW #2 (Recuperação de Senha)
-  └── LATER #26 (Notificações por E-mail) depende de e-mail configurado
-
-NOW #4 (Ampliar Unidades)
-  └── NEXT #18 (Conversão de Unidades) depende de mais unidades disponíveis
-
-NOW #1 (Planos/Assinaturas)
-  └── Desbloqueia monetização e define o escopo de acesso de cada usuário
-
-NEXT #6 (Testes) — recomendável antes de qualquer refactor grande
-LATER #24 (Multi-usuário) — afeta auth em todo o sistema, implementar por último
-```
-
----
-
-*Gerado em: junho/2026 · Baseado em varredura completa de backend, frontend, banco de dados e documentação do CookPrice.*
+*Atualizado: junho/2026*

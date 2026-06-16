@@ -12,6 +12,7 @@ import { useAppStore } from '../store/useAppStore'
 import { useModal } from '../hooks/useModal'
 import { handleApiError } from '../utils/apiError'
 import { getUser } from '../lib/auth'
+import { triggerPlanUpgrade } from '../lib/api'
 import { parseDecimal } from '../utils/inputs'
 
 interface ChangePasswordForm {
@@ -29,6 +30,7 @@ const NAV_LINKS = [
   { path: '/dashboard',    label: '📊 Dashboard' },
   { path: '/ingredients',  label: '🥕 Ingredientes' },
   { path: '/recipes',      label: '📖 Receitas' },
+  { path: '/producoes',    label: '🏭 Produções' },
 ]
 
 export function AppHeader() {
@@ -120,7 +122,15 @@ export function AppHeader() {
               key={link.path}
               href={link.path}
               className={pathname === link.path ? 'active' : ''}
-              onClick={e => { e.preventDefault(); navigate(link.path); setSidebarOpen(false) }}
+              onClick={e => {
+                e.preventDefault()
+                if (link.path === '/producoes' && !getUser()?.plan.has_production) {
+                  triggerPlanUpgrade('O histórico de produções está disponível nos planos pagos.')
+                } else {
+                  navigate(link.path)
+                }
+                setSidebarOpen(false)
+              }}
             >
               {link.label}
             </a>

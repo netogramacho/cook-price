@@ -40,7 +40,7 @@ export function Register() {
   return (
     <div className="auth-container">
       <div className="auth-card">
-        <h1 className="auth-logo"><BrandLogo size={28} /> Preciva</h1>
+        <h1 className="auth-logo"><BrandLogo size={28} variant="bordo" /> Preciva</h1>
         <p className="auth-subtitle">Criar conta</p>
         <form onSubmit={handleSubmit} noValidate>
           <FormField label="Nome" error={errors.name?.[0]}>

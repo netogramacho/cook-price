@@ -10,6 +10,9 @@ import { TypeBadge } from '../components/ui/TypeBadge'
 import { ConfirmModal } from '../components/ui/ConfirmModal'
 import { AsyncState } from '../components/ui/AsyncState'
 import { IngredientAutocomplete } from '../components/IngredientAutocomplete'
+import { ProduceModal } from '../components/ProduceModal'
+import { triggerPlanUpgrade } from '../lib/api'
+import { getUser } from '../lib/auth'
 import { RecipeService } from '../services/RecipeService'
 import type { Recipe, RecipeIngredient } from '../services/RecipeService'
 import { IngredientService } from '../services/IngredientService'
@@ -157,6 +160,14 @@ export function RecipeDetail() {
     }
   }
 
+  const [produceOpen, setProduceOpen] = useState(false)
+
+  const EyeIcon = () => (
+    <svg className="locked-eye" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+      <circle cx="12" cy="12" r="3"/>
+    </svg>
+  )
   const ingredients = (recipe?.ingredients ?? []) as RecipeIngredient[]
 
   return (
@@ -176,22 +187,80 @@ export function RecipeDetail() {
                     <p className="recipe-meta">Rendimento: {fmtCurrency(recipe.yield)} {recipe.yield_unit}</p>
                   </div>
                   <div className="recipe-header-actions">
+                    <button className="btn btn-primary" onClick={() => getUser()?.plan.has_production ? setProduceOpen(true) : triggerPlanUpgrade('O registro de produções está disponível nos planos pagos.')}>Produzir</button>
                     <button className="btn btn-secondary" onClick={openEdit}>Editar</button>
                   </div>
                 </div>
 
                 <div className="cost-summary">
-                  <div className="cost-item"><label>Ingredientes</label><strong>R$ {fmtCurrency(recipe.ingredients_cost)}</strong></div>
-                  {Number(recipe.packaging_cost) > 0 && <div className="cost-item"><label>Embalagem</label><strong>R$ {fmtCurrency(recipe.packaging_cost)}</strong></div>}
-                  {Number(recipe.invisible_cost_pct) > 0 && <div className="cost-item"><label>Custos Invisíveis ({String(recipe.invisible_cost_pct)}%)</label><strong>R$ {fmtCurrency(recipe.invisible_cost as number)}</strong></div>}
-                  {recipe.production_cost != null && <div className="cost-item"><label>Custo de Produção</label><strong>R$ {fmtCurrency(recipe.production_cost as number)}</strong></div>}
-                  {Number(recipe.profit_multiplier) > 1 ? (
-                    <div className="cost-item cost-item-highlight">
-                      <label>Preço Sugerido / {recipe.yield_unit} ({String(recipe.profit_multiplier)}x · margem {String(recipe.profit_margin_pct)}%)</label>
-                      <strong>R$ {fmtCurrency(recipe.suggested_price_per_yield as number)}</strong>
-                    </div>
+                  <div className="cost-item">
+                    <label>Ingredientes</label>
+                    <strong>R$ {fmtCurrency(recipe.ingredients_cost)}</strong>
+                  </div>
+                  {recipe.production_cost != null ? (
+                    <>
+                      {Number(recipe.packaging_cost) > 0 && (
+                        <div className="cost-item">
+                          <label>Embalagem</label>
+                          <strong>R$ {fmtCurrency(recipe.packaging_cost)}</strong>
+                        </div>
+                      )}
+                      {Number(recipe.invisible_cost_pct) > 0 && (
+                        <div className="cost-item">
+                          <label>Custos Invisíveis ({String(recipe.invisible_cost_pct)}%)</label>
+                          <strong>R$ {fmtCurrency(recipe.invisible_cost as number)}</strong>
+                        </div>
+                      )}
+                      <div className="cost-item">
+                        <label>Custo de Produção</label>
+                        <strong>R$ {fmtCurrency(recipe.production_cost as number)}</strong>
+                      </div>
+                      <div className="cost-item">
+                        <label>Custo por {recipe.yield_unit}</label>
+                        <strong>R$ {fmtCurrency(recipe.cost_per_yield as number)}</strong>
+                      </div>
+                      {Number(recipe.profit_multiplier) > 1 && (
+                        <div style={{ flexBasis: '100%' }}>
+                          <div className="cost-item cost-item-highlight">
+                            <label>Preço Sugerido / {recipe.yield_unit} ({String(recipe.profit_multiplier)}x · margem {String(recipe.profit_margin_pct)}%)</label>
+                            <strong>R$ {fmtCurrency(recipe.suggested_price_per_yield as number)}</strong>
+                          </div>
+                        </div>
+                      )}
+                    </>
                   ) : (
-                    <div className="cost-item"><label>Por {recipe.yield_unit}</label><strong>R$ {fmtCurrency(recipe.cost_per_yield as number)}</strong></div>
+                    <>
+                      <div className="cost-item cost-item-locked" onClick={() => triggerPlanUpgrade()}>
+                        <label>Custos Invisíveis</label>
+                        <div className="locked-value-row">
+                          <strong className="locked-value">R$ 99,99</strong>
+                          <EyeIcon />
+                        </div>
+                      </div>
+                      <div className="cost-item cost-item-locked" onClick={() => triggerPlanUpgrade()}>
+                        <label>Custo de Produção</label>
+                        <div className="locked-value-row">
+                          <strong className="locked-value">R$ 99,99</strong>
+                          <EyeIcon />
+                        </div>
+                      </div>
+                      <div className="cost-item cost-item-locked" onClick={() => triggerPlanUpgrade()}>
+                        <label>Custo por {recipe.yield_unit}</label>
+                        <div className="locked-value-row">
+                          <strong className="locked-value">R$ 9,99</strong>
+                          <EyeIcon />
+                        </div>
+                      </div>
+                      <div style={{ flexBasis: '100%' }}>
+                        <div className="cost-item cost-item-highlight cost-item-locked" onClick={() => triggerPlanUpgrade()}>
+                          <label>Preço Sugerido / {recipe.yield_unit}</label>
+                          <div className="locked-value-row" style={{ justifyContent: 'center' }}>
+                            <strong className="locked-value">R$ 9,99</strong>
+                            <EyeIcon />
+                          </div>
+                        </div>
+                      </div>
+                    </>
                   )}
                 </div>
 
@@ -285,6 +354,13 @@ export function RecipeDetail() {
         onConfirm={removeIngredient.execute}
         onClose={removeIngredient.close}
       />
+
+      <ProduceModal
+        recipe={produceOpen ? recipe : null}
+        onClose={() => setProduceOpen(false)}
+        onSuccess={() => setProduceOpen(false)}
+      />
+
     </div>
   )
 }

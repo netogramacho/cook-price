@@ -12,6 +12,7 @@ import { Dashboard } from './pages/Dashboard'
 import { Ingredients } from './pages/Ingredients'
 import { Recipes } from './pages/Recipes'
 import { RecipeDetail } from './pages/RecipeDetail'
+import { Productions } from './pages/Productions'
 import { NotFound } from './pages/NotFound'
 import { isAuthenticated, isEmailVerified } from './lib/auth'
 import { subscribeLoading, subscribePlanUpgrade } from './lib/api'
@@ -74,6 +75,7 @@ export function App() {
         <Route path="/ingredients" element={<ProtectedRoute><Ingredients /></ProtectedRoute>} />
         <Route path="/recipes" element={<ProtectedRoute><Recipes /></ProtectedRoute>} />
         <Route path="/recipes/:id" element={<ProtectedRoute><RecipeDetail /></ProtectedRoute>} />
+        <Route path="/producoes" element={<ProtectedRoute><Productions /></ProtectedRoute>} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>
