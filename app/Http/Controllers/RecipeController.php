@@ -4,8 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\Recipe\StoreRecipeRequest;
 use App\Http\Requests\Recipe\UpdateRecipeRequest;
-use App\Models\Plan;
 use App\Models\Recipe;
+use App\Models\User;
 use App\Services\RecipeCostService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -55,16 +55,7 @@ class RecipeController extends Controller
         $user = $request->user()->load('plan');
         $plan = $user->plan;
 
-        if ($plan->max_recipes !== null) {
-            $count = Recipe::where('user_id', $user->id)->where('active', true)->count();
-            if ($count >= $plan->max_recipes) {
-                return response()->json([
-                    'success'    => false,
-                    'message'    => "Seu plano permite no máximo {$plan->max_recipes} receitas. Faça upgrade para continuar.",
-                    'error_code' => 'PLAN_LIMIT_REACHED',
-                ], 403);
-            }
-        }
+        if ($limit = $this->checkRecipeLimit($user)) return $limit;
 
         $recipe = Recipe::create([
             'user_id'             => $user->id,
@@ -141,6 +132,48 @@ class RecipeController extends Controller
         ]);
     }
 
+    public function duplicate(Request $request, Recipe $recipe): JsonResponse
+    {
+        if ($recipe->user_id !== $request->user()->id || !$recipe->active) {
+            return response()->json([
+                'success'    => false,
+                'message'    => 'Receita não encontrada.',
+                'error_code' => 'RECIPE_NOT_FOUND',
+            ], 404);
+        }
+
+        $user = $request->user()->load('plan');
+        $plan = $user->plan;
+
+        if ($limit = $this->checkRecipeLimit($user)) return $limit;
+
+        $copy = Recipe::create([
+            'user_id'            => $user->id,
+            'name'               => $recipe->name . ' — Cópia',
+            'description'        => $recipe->description,
+            'yield'              => $recipe->yield,
+            'yield_unit'         => $recipe->yield_unit,
+            'invisible_cost_pct' => $recipe->invisible_cost_pct,
+            'profit_multiplier'  => $recipe->profit_multiplier,
+        ]);
+
+        $recipe->load('ingredients');
+        $sync = [];
+        foreach ($recipe->ingredients as $ingredient) {
+            $sync[$ingredient->id] = ['quantity' => $ingredient->pivot->quantity];
+        }
+        $copy->ingredients()->sync($sync);
+
+        $copy->load('ingredients');
+        $cost = $this->cost_service->calculate($copy);
+
+        return response()->json([
+            'success' => true,
+            'data'    => $this->formatRecipe($copy, $cost, $plan->has_pricing),
+            'message' => 'Receita duplicada com sucesso.',
+        ], 201);
+    }
+
     public function destroy(Request $request, Recipe $recipe): JsonResponse
     {
         if ($recipe->user_id !== $request->user()->id) {
@@ -158,6 +191,21 @@ class RecipeController extends Controller
             'data'    => null,
             'message' => 'Receita excluída com sucesso.',
         ]);
+    }
+
+    private function checkRecipeLimit(User $user): ?JsonResponse
+    {
+        $plan = $user->plan;
+        if ($plan->max_recipes === null) return null;
+
+        $count = Recipe::where('user_id', $user->id)->where('active', true)->count();
+        if ($count < $plan->max_recipes) return null;
+
+        return response()->json([
+            'success'    => false,
+            'message'    => "Seu plano permite no máximo {$plan->max_recipes} receitas. Faça upgrade para continuar.",
+            'error_code' => 'PLAN_LIMIT_REACHED',
+        ], 403);
     }
 
     private function buildSyncData(array $ingredients): array

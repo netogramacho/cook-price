@@ -7,12 +7,13 @@ interface Props {
   emptyEntityName?: string
   emptySearch?: string
   emptyMessage?: string
+  emptyAction?: { label: string; onClick: () => void }
   children: React.ReactNode
 }
 
-export function AsyncState({ loading, error, empty, emptyEntityName = 'item', emptySearch, emptyMessage, children }: Props) {
+export function AsyncState({ loading, error, empty, emptyEntityName = 'item', emptySearch, emptyMessage, emptyAction, children }: Props) {
   if (loading) return <div className="loading">Carregando...</div>
   if (error) return <div className="error-state">{error}</div>
-  if (empty) return <EmptyState entityName={emptyEntityName} search={emptySearch} message={emptyMessage} />
+  if (empty) return <EmptyState entityName={emptyEntityName} search={emptySearch} message={emptyMessage} action={emptyAction} />
   return <>{children}</>
 }

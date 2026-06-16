@@ -3,6 +3,7 @@ import { api } from '../lib/api'
 export interface DashboardData {
   recipes_count: number
   ingredients_count: number
+  productions_count: number
 }
 
 export const DashboardService = {

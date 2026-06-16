@@ -41,6 +41,7 @@ Route::middleware(['auth:sanctum', EnsureEmailIsVerified::class])->group(functio
     Route::put('user/settings', [UserController::class, 'updateSettings']);
 
     Route::apiResource('ingredients', IngredientController::class);
+    Route::post('recipes/{recipe}/duplicate', [RecipeController::class, 'duplicate']);
     Route::apiResource('recipes', RecipeController::class);
 
     Route::get('productions/summary',          [ProductionController::class, 'summary']);

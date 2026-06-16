@@ -12,7 +12,7 @@
 
 **Ingredientes** — CRUD com busca, preço por embalagem, unidade de medida, tipo (ingrediente/embalagem)
 
-**Receitas** — CRUD em 3 etapas (dados → ingredientes → embalagens), busca por nome
+**Receitas** — CRUD em 3 etapas (dados → ingredientes → embalagens), busca por nome, duplicar receita
 
 **Cálculo de Custos** — Ingredientes, embalagem, custos invisíveis (%), custo de produção, preço sugerido por receita e por unidade, margem de lucro
 
@@ -21,40 +21,6 @@
 **Produções** — Registrar lote com snapshot imutável, histórico paginado, resumo diário e mensal, exclusão com confirmação
 
 **Identidade** — Rebrand para Preciva com logo SVG
-
----
-
-## NOW — Crítico para o Lançamento
-
-### 1. Ampliar Unidades de Medida
-
-**Problema:** Só aceita `g`, `ml` e `un`. Confeiteiros compram em kg, L, cx, pacote. Quem tem 1 kg de farinha cadastra 1000 g e converte mentalmente — barreira real de adoção.
-
-**O que fazer:**
-- Backend: campo `unit` livre (string) com lista de sugestões em vez de enum fechado
-- Frontend: autocomplete com sugestões (`g`, `kg`, `ml`, `L`, `un`, `cs`, `cx`, `pc`)
-- Retrocompatibilidade total com registros existentes
-
----
-
-### 2. Duplicar Receita
-
-**Problema:** Criar variação de uma receita existente exige redigitar tudo. Quem faz brigadeiro tradicional e de Nutella precisa de duplicação.
-
-**O que fazer:**
-- `POST /api/recipes/{id}/duplicate` — clona com sufixo "— Cópia", replica todos os ingredientes
-- Botão "Duplicar" na lista e no detalhe da receita
-
----
-
-### 3. Onboarding para Novos Usuários
-
-**Problema:** Novo usuário vê dashboard vazio sem orientação. Onboarding ruim = abandono na primeira sessão.
-
-**O que fazer:**
-- Estado vazio com instrução e CTA nas páginas Ingredientes, Receitas e Produções
-- Checklist de primeiros passos no dashboard: "Adicione um ingrediente → Crie uma receita → Registre uma produção"
-- Checklist some ao completar as etapas
 
 ---
 
@@ -253,10 +219,7 @@ Removido do MVP por adicionar complexidade desnecessária para o micro confeitei
 
 | Prazo | # | Feature | Impacto |
 |-------|---|---------|---------|
-| **NOW** | 1 | Ampliar Unidades de Medida | Alto |
-| **NOW** | 2 | Duplicar Receita | Médio |
-| **NOW** | 3 | Onboarding / Estados Vazios | Alto |
-| **NEXT** | 4 | Catálogo de Produtos | Alto |
+| **NEXT** | 1 | Catálogo de Produtos | Alto |
 | **NEXT** | 5 | Foto de Receita | Médio |
 | **NEXT** | 6 | Simulação de Precificação | Alto |
 | **NEXT** | 7 | Histórico de Produção por Receita | Médio |
@@ -290,6 +253,8 @@ Removido do MVP por adicionar complexidade desnecessária para o micro confeitei
 | ✅ Gates de Funcionalidade | has_pricing, has_production, limites quantitativos |
 | ✅ Upsell Contextual | Blur + olhinho + drawer de planos nas features bloqueadas |
 | ✅ Rebrand para Preciva | Logo, nome, identidade visual |
+| ✅ Duplicar Receita | Clona receita com todos os ingredientes |
+| ✅ Onboarding / Estados Vazios | Checklist no dashboard + CTAs nos empty states |
 
 ---
 

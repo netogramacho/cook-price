@@ -109,7 +109,8 @@ export function Ingredients() {
           <SearchBar placeholder="Buscar ingrediente..." value={search} onChange={handleSearch} />
 
           <AsyncState loading={loading} error={loadError || null}
-            empty={!items.length} emptyEntityName="ingrediente" emptySearch={search}>
+            empty={!items.length} emptyEntityName="ingrediente" emptySearch={search}
+            emptyAction={{ label: '+ Novo Ingrediente', onClick: openCreate }}>
             <div className="table-wrapper">
               <table className="ingredients-table">
                 <thead>

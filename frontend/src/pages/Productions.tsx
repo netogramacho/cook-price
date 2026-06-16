@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { AppHeader } from '../components/AppHeader'
 import { PageHeader } from '../components/ui/PageHeader'
 import { AsyncState } from '../components/ui/AsyncState'
@@ -16,6 +17,7 @@ function fmtDate(dateStr: string) {
 }
 
 export function Productions() {
+  const navigate = useNavigate()
   const { success, error } = useAppStore()
 
   const [summary, setSummary] = useState<ProductionSummary | null>(null)
@@ -85,7 +87,8 @@ export function Productions() {
           )}
 
           <AsyncState loading={loading} error={loadError ? 'Erro ao carregar produções.' : null}
-            empty={!items.length} emptyEntityName="produção" emptySearch="">
+            empty={!items.length} emptyEntityName="produção" emptySearch=""
+            emptyAction={{ label: 'Ir para Receitas', onClick: () => navigate('/recipes') }}>
             <div className="table-wrapper">
               <table className="ingredients-table">
                 <thead>

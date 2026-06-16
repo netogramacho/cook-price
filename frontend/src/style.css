@@ -787,6 +787,98 @@ tr:hover td { background: #FDF5F5; }
 }
 .error-state { color: var(--danger); }
 
+/* Empty state with CTA */
+.empty-state-cta {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    padding: 48px 24px;
+}
+.empty-state-cta-text {
+    color: var(--text-muted);
+    font-size: 15px;
+    text-align: center;
+    margin: 0;
+}
+
+/* Onboarding checklist */
+.onboarding-checklist {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin-bottom: 24px;
+}
+.onboarding-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+    margin: 0 0 14px;
+}
+.onboarding-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.onboarding-step {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: background 0.15s;
+    color: var(--text);
+}
+.onboarding-step:hover:not(.onboarding-step--done) {
+    background: var(--bg);
+}
+.onboarding-step--done {
+    cursor: default;
+    opacity: 0.5;
+}
+.onboarding-step-icon {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: var(--primary);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+.onboarding-step--done .onboarding-step-icon {
+    background: var(--success, #16a34a);
+}
+.onboarding-step-label {
+    font-size: 14px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.onboarding-step--locked {
+    opacity: 0.75;
+}
+.onboarding-step--locked .onboarding-step-icon {
+    background: var(--text-muted);
+    font-size: 11px;
+}
+.onboarding-step-badge {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 20px;
+    background: var(--primary);
+    color: #fff;
+    letter-spacing: 0.02em;
+}
+
 /* Step hint */
 .step-hint {
     font-size: 13px;

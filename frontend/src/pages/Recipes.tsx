@@ -68,6 +68,16 @@ export function Recipes() {
     onError: error,
   })
 
+  async function handleDuplicate(id: string) {
+    try {
+      const copy = await RecipeService.duplicate(id)
+      success(`"${copy.name}" criada.`)
+      refetch()
+    } catch {
+      error('Erro ao duplicar receita.')
+    }
+  }
+
   async function openCreateModal() {
     try {
       const [allIngredients, user] = await Promise.all([IngredientService.getAll(), UserService.get()])
@@ -178,7 +188,8 @@ export function Recipes() {
           <SearchBar placeholder="Buscar receita..." value={search} onChange={handleSearch} />
 
           <AsyncState loading={loading} error={loadError || null}
-            empty={!recipes.length} emptyEntityName="receita" emptySearch={search}>
+            empty={!recipes.length} emptyEntityName="receita" emptySearch={search}
+            emptyAction={{ label: '+ Nova Receita', onClick: openCreateModal }}>
             <>
               {recipes.map(r => (
                 <div key={r.id} className="recipe-card">
@@ -197,6 +208,7 @@ export function Recipes() {
                   <div className="recipe-actions">
                     <button className="btn btn-primary btn-sm" onClick={() => getUser()?.plan.has_production ? setProduceRecipe(r) : triggerPlanUpgrade('O registro de produções está disponível nos planos pagos.')}>Produzir</button>
                     <button className="btn btn-secondary btn-sm" onClick={() => navigate(`/recipes/${r.id}`)}>Ver</button>
+                    <button className="btn btn-secondary btn-sm" onClick={() => handleDuplicate(r.id)}>Duplicar</button>
                     <button className="btn btn-danger btn-sm" onClick={() => deleteRecipe.open(r)}>Excluir</button>
                   </div>
                 </div>

@@ -81,4 +81,9 @@ export const RecipeService = {
   async delete(id: string): Promise<void> {
     await api.delete(`/recipes/${id}`)
   },
+
+  async duplicate(id: string): Promise<Recipe> {
+    const res = await api.post<{ data: Recipe }>(`/recipes/${id}/duplicate`, {})
+    return res.data
+  },
 }
