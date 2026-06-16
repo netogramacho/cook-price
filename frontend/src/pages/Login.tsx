@@ -40,7 +40,7 @@ export function Login() {
   return (
     <div className="auth-container">
       <div className="auth-card">
-        <h1 className="auth-logo"><BrandLogo size={28} variant="bordo" /> Preciva</h1>
+        <div className="auth-logo"><BrandLogo height={90} variant="bordo" /></div>
         <p className="auth-subtitle">Bem-vindo de volta</p>
         <form onSubmit={handleSubmit} noValidate>
           <FormField label="E-mail" error={errors.email?.[0]}>
