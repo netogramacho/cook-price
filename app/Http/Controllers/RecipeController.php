@@ -7,7 +7,6 @@ use App\Http\Requests\Recipe\UpdateRecipeRequest;
 use App\Models\Plan;
 use App\Models\Recipe;
 use App\Services\RecipeCostService;
-use App\Services\StockMovementService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -15,7 +14,6 @@ class RecipeController extends Controller
 {
     public function __construct(
         private RecipeCostService $cost_service,
-        private StockMovementService $stock_service,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -158,79 +156,6 @@ class RecipeController extends Controller
             'success' => true,
             'data'    => null,
             'message' => 'Receita excluída com sucesso.',
-        ]);
-    }
-
-    public function produce(Request $request, Recipe $recipe): JsonResponse
-    {
-        if ($recipe->user_id !== $request->user()->id || !$recipe->active) {
-            return response()->json([
-                'success'    => false,
-                'message'    => 'Receita não encontrada.',
-                'error_code' => 'RECIPE_NOT_FOUND',
-            ], 404);
-        }
-
-        $plan = $request->user()->load('plan')->plan;
-
-        if (!$plan->has_production) {
-            return response()->json([
-                'success'    => false,
-                'message'    => 'Seu plano não inclui registro de produção. Faça upgrade para continuar.',
-                'error_code' => 'PLAN_FEATURE_UNAVAILABLE',
-            ], 403);
-        }
-
-        $request->validate([
-            'times' => ['required', 'integer', 'min:1'],
-        ]);
-
-        $times      = (int) $request->times;
-        $force      = (bool) $request->input('force', false);
-        $skip_stock = (bool) $request->user()->disable_stock_control;
-        $recipe->load('ingredients');
-
-        if (!$skip_stock) {
-            if (!$force) {
-                $insufficient = [];
-                foreach ($recipe->ingredients as $ingredient) {
-                    $needed = (float) $ingredient->pivot->quantity * $times;
-                    if ((float) $ingredient->stock_quantity < $needed) {
-                        $insufficient[] = sprintf(
-                            '%s (tem %s%s, precisa %s%s)',
-                            $ingredient->name,
-                            number_format((float) $ingredient->stock_quantity, 3, ',', '.'),
-                            $ingredient->unit,
-                            number_format($needed, 3, ',', '.'),
-                            $ingredient->unit
-                        );
-                    }
-                }
-
-                if ($insufficient) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Estoque insuficiente para produção.',
-                        'errors'  => ['stock' => $insufficient],
-                    ], 422);
-                }
-            }
-
-            foreach ($recipe->ingredients as $ingredient) {
-                $needed = (float) $ingredient->pivot->quantity * $times;
-                $actual = $force
-                    ? min((float) $ingredient->stock_quantity, $needed)
-                    : $needed;
-                if ($actual > 0) {
-                    $this->stock_service->deduct($ingredient, $actual, 'production', $request->user(), $recipe->id);
-                }
-            }
-        }
-
-        return response()->json([
-            'success' => true,
-            'data'    => null,
-            'message' => 'Produção registrada com sucesso.',
         ]);
     }
 

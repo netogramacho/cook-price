@@ -16,7 +16,7 @@ class UserController extends Controller
         return response()->json([
             'success' => true,
             'data'    => array_merge(
-                $user->only('id', 'name', 'email', 'email_verified_at', 'invisible_cost_pct', 'profit_multiplier', 'disable_stock_control'),
+                $user->only('id', 'name', 'email', 'email_verified_at', 'invisible_cost_pct', 'profit_multiplier'),
                 ['plan' => $user->plan]
             ),
             'message' => 'Usuário encontrado.',
@@ -37,11 +37,11 @@ class UserController extends Controller
     public function updateSettings(UpdateSettingsRequest $request): JsonResponse
     {
         $user = $request->user();
-        $user->update($request->only('invisible_cost_pct', 'profit_multiplier', 'disable_stock_control'));
+        $user->update($request->only('invisible_cost_pct', 'profit_multiplier'));
 
         return response()->json([
             'success' => true,
-            'data'    => $user->only('id', 'name', 'email', 'invisible_cost_pct', 'profit_multiplier', 'disable_stock_control'),
+            'data'    => $user->only('id', 'name', 'email', 'invisible_cost_pct', 'profit_multiplier'),
             'message' => 'Configurações salvas com sucesso.',
         ]);
     }

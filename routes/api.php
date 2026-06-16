@@ -6,10 +6,7 @@ use App\Http\Controllers\PlanController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\IngredientController;
 use App\Http\Controllers\PasswordResetController;
-use App\Http\Controllers\PurchaseController;
 use App\Http\Controllers\RecipeController;
-use App\Http\Controllers\StockController;
-use App\Http\Controllers\StockMovementController;
 use App\Http\Controllers\SubscriptionController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\VerifyEmailController;
@@ -44,16 +41,6 @@ Route::middleware(['auth:sanctum', EnsureEmailIsVerified::class])->group(functio
 
     Route::apiResource('ingredients', IngredientController::class);
     Route::apiResource('recipes', RecipeController::class);
-
-    Route::get('stock',                                    [StockController::class, 'index']);
-    Route::get('purchases',                                [PurchaseController::class, 'index']);
-    Route::post('purchases',                               [PurchaseController::class, 'store']);
-    Route::delete('purchases/{purchase}',                        [PurchaseController::class, 'destroy']);
-    Route::post('purchases/{purchase}/reset-and-delete',         [PurchaseController::class, 'resetAndDelete']);
-    Route::patch('ingredients/{ingredient}/stock',               [StockMovementController::class, 'adjust']);
-    Route::delete('ingredients/{ingredient}/movements',          [StockMovementController::class, 'reset']);
-    Route::get('ingredients/{ingredient}/movements',             [StockMovementController::class, 'index']);
-    Route::post('recipes/{recipe}/produce',                [RecipeController::class, 'produce']);
 
     Route::get('subscriptions/current', [SubscriptionController::class, 'current']);
     Route::post('subscriptions',        [SubscriptionController::class, 'store']);
