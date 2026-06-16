@@ -15,6 +15,40 @@ class ProductionController extends Controller
         private RecipeCostService $cost_service,
     ) {}
 
+    public function summary(Request $request): JsonResponse
+    {
+        $user_id     = $request->user()->id;
+        $today       = now()->toDateString();
+        $month_start = now()->startOfMonth()->toDateString();
+
+        $today_row = Production::where('user_id', $user_id)
+            ->whereDate('produced_at', $today)
+            ->selectRaw('COUNT(*) as batches, COALESCE(SUM(total_yield), 0) as items, COALESCE(SUM(total_cost), 0) as cost')
+            ->first();
+
+        $month_row = Production::where('user_id', $user_id)
+            ->where('produced_at', '>=', $month_start)
+            ->selectRaw('COUNT(*) as batches, COALESCE(SUM(total_yield), 0) as items, COALESCE(SUM(total_cost), 0) as cost')
+            ->first();
+
+        return response()->json([
+            'success' => true,
+            'data'    => [
+                'today' => [
+                    'batches' => (int)   $today_row->batches,
+                    'items'   => round((float) $today_row->items, 3),
+                    'cost'    => round((float) $today_row->cost,  2),
+                ],
+                'month' => [
+                    'batches' => (int)   $month_row->batches,
+                    'items'   => round((float) $month_row->items, 3),
+                    'cost'    => round((float) $month_row->cost,  2),
+                ],
+            ],
+            'message' => 'Resumo de produções.',
+        ]);
+    }
+
     public function index(Request $request): JsonResponse
     {
         $productions = Production::where('user_id', $request->user()->id)

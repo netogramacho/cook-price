@@ -558,6 +558,47 @@ tr:hover td { background: #FDF5F5; }
 .locked-eye { flex-shrink: 0; opacity: 0.55; color: var(--primary); }
 
 
+/* Production summary cards */
+.production-summary {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 24px;
+}
+.production-summary-card {
+    background: var(--primary-light);
+    border-radius: var(--radius);
+    padding: 20px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.production-summary-card--month {
+    background: var(--primary);
+}
+.production-summary-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--primary-dark);
+}
+.production-summary-card--month .production-summary-label { color: rgba(255,255,255,0.8); }
+.production-summary-cost {
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--primary-dark);
+    line-height: 1.1;
+}
+.production-summary-card--month .production-summary-cost { color: #fff; }
+.production-summary-meta {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-top: 2px;
+}
+.production-summary-card--month .production-summary-meta { color: rgba(255,255,255,0.75); }
+@media (max-width: 480px) { .production-summary { grid-template-columns: 1fr; } }
+
 /* Ingredient rows in form */
 .ingredient-rows { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
 .ingredient-row {

@@ -43,6 +43,7 @@ Route::middleware(['auth:sanctum', EnsureEmailIsVerified::class])->group(functio
     Route::apiResource('ingredients', IngredientController::class);
     Route::apiResource('recipes', RecipeController::class);
 
+    Route::get('productions/summary',          [ProductionController::class, 'summary']);
     Route::get('productions',                  [ProductionController::class, 'index']);
     Route::post('productions',                 [ProductionController::class, 'store']);
     Route::delete('productions/{production}',  [ProductionController::class, 'destroy']);

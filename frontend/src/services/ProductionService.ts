@@ -22,6 +22,17 @@ export interface ProductionSnapshot {
   suggested_price_per_yield: number
 }
 
+export interface ProductionSummaryPeriod {
+  batches: number
+  items: number
+  cost: number
+}
+
+export interface ProductionSummary {
+  today: ProductionSummaryPeriod
+  month: ProductionSummaryPeriod
+}
+
 export interface Production {
   id: string
   recipe_id: string | null
@@ -36,6 +47,11 @@ export interface Production {
 }
 
 export const ProductionService = {
+  async getSummary(): Promise<ProductionSummary> {
+    const res = await api.get<{ data: ProductionSummary }>('/productions/summary')
+    return res.data
+  },
+
   async getPaginated(page = 1): Promise<{ items: Production[]; meta: { current_page: number; last_page: number; total: number } }> {
     const res = await api.get<{ data: { data: Production[]; current_page: number; last_page: number; total: number } }>(`/productions?page=${page}`)
     const p = res.data
