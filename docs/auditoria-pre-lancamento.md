@@ -232,7 +232,7 @@ Inconsistência semântica — usuário free ou Basic recebe `productions_count`
 | 7 | Preço do plano sem centavos | ✅ Resolvido |
 | 8 | AdminController sem `auth:sanctum` | ✅ Resolvido (middleware `admin.token`) |
 | 9 | Interface `Recipe` incompleta | ✅ Resolvido |
-| 10 | `RecipeIngredient.ingredient_id` fantasma | ✅ Resolvido |
+| 10 | `RecipeIngredient.ingredient_id` fantasma | ✅ Resolvido (interface + referências em RecipeDetail) |
 | 11 | `destroy()` Ingredient sem verificar `active` | ✅ Resolvido |
 | 12 | `destroy()` Recipe sem verificar `active` | ✅ Resolvido |
 | 13 | Dois PlanModal simultâneos | ✅ Resolvido |

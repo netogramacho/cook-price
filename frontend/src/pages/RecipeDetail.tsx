@@ -106,7 +106,7 @@ export function RecipeDetail() {
     try { allIngredients = await IngredientService.getAll() }
     catch { error('Erro ao carregar ingredientes.'); return }
 
-    const currentIds = new Set((recipe?.ingredients as RecipeIngredient[] ?? []).map(i => i.ingredient_id ?? i.id))
+    const currentIds = new Set((recipe?.ingredients as RecipeIngredient[] ?? []).map(i => i.id))
     const available = allIngredients.filter(i => !currentIds.has(i.id))
 
     if (!available.length) { error('Todos os ingredientes já foram adicionados a esta receita.'); return }
@@ -144,7 +144,7 @@ export function RecipeDetail() {
       const targetId = editQtyModal.state.ingredient.id
       const newQty = parseDecimal(editQtyForm.quantity)
       const ingredients = (recipe?.ingredients as RecipeIngredient[] ?? []).map(i => ({
-        ingredient_id: i.ingredient_id ?? i.id,
+        ingredient_id: i.id,
         quantity: i.id === targetId ? newQty : parseFloat(String(i.quantity)),
       }))
       const updated = await RecipeService.update(id!, { ingredients })
