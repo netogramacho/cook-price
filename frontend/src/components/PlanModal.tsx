@@ -4,36 +4,24 @@ import { PlanService } from '../services/PlanService'
 import { UserService } from '../services/UserService'
 import { useAppStore } from '../store/useAppStore'
 import { getUser, setUser, type UserPlan } from '../lib/auth'
-
-const FEATURE_MAP: { key: keyof UserPlan; label: string }[] = [
-  { key: 'has_stock',         label: 'Controle de estoque' },
-  { key: 'has_stock_history', label: 'Histórico de movimentos' },
-  { key: 'has_production',    label: 'Controle de produção' },
-]
+import { fmtCurrency } from '../utils/formatters'
 
 function buildFeatures(plan: UserPlan): string[] {
   const features: string[] = []
 
-  if (plan.max_recipes === null) {
-    features.push('Receitas ilimitadas')
-  } else {
-    features.push(`Até ${plan.max_recipes} receitas`)
-  }
+  features.push(plan.max_recipes === null ? 'Receitas ilimitadas' : `Até ${plan.max_recipes} receitas`)
+  features.push(plan.max_ingredients === null ? 'Ingredientes ilimitados' : `Até ${plan.max_ingredients} ingredientes`)
 
-  if (plan.max_ingredients === null) {
-    features.push('Ingredientes ilimitados')
-  } else {
-    features.push(`Até ${plan.max_ingredients} ingredientes`)
-  }
+  features.push('Calcule o custo de cada receita')
 
   if (plan.has_pricing) {
-    features.push('Precificação e lucro')
-  } else {
-    features.push('Custo básico das receitas')
+    features.push('Inclui gás, energia e outros gastos no cálculo')
+    features.push('Descubra o preço certo para não trabalhar no prejuízo')
   }
 
-  for (const { key, label } of FEATURE_MAP) {
-    if (plan[key]) features.push(label)
+  if (plan.has_production) {
+    features.push('Registre cada lote que você produz')
+    features.push('Acompanhe o que produziu hoje e no mês')
   }
 
   return features
@@ -251,7 +239,7 @@ export function PlanModal({ visible, onClose, message }: Props) {
                       <div className="plan-card-header">
                         <span className="plan-card-name">{plan.label}</span>
                         <span className="plan-card-price">
-                          {Number(plan.price) === 0 ? 'Grátis' : `R$ ${Number(plan.price).toFixed(0)}/mês`}
+                          {Number(plan.price) === 0 ? 'Grátis' : `R$ ${fmtCurrency(plan.price)}/mês`}
                         </span>
                       </div>
                       <ul className="plan-features">

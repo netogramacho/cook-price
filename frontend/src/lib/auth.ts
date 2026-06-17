@@ -9,8 +9,6 @@ export interface UserPlan {
   max_recipes: number | null
   max_ingredients: number | null
   has_pricing: boolean
-  has_stock: boolean
-  has_stock_history: boolean
   has_production: boolean
 }
 
