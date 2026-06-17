@@ -36,7 +36,7 @@ class RecipeController extends Controller
             $cost = $this->cost_service->calculate($recipe);
 
             return array_merge($recipe->toArray(), [
-                'total_cost'                => $cost['total_cost'],
+                'base_cost'                 => $cost['base_cost'],
                 'production_cost'           => $has_pricing ? $cost['production_cost']           : null,
                 'cost_per_yield'            => $has_pricing ? $cost['cost_per_yield']            : null,
                 'suggested_price_per_yield' => $has_pricing ? $cost['suggested_price_per_yield'] : null,
@@ -83,13 +83,7 @@ class RecipeController extends Controller
 
     public function show(Request $request, Recipe $recipe): JsonResponse
     {
-        if ($recipe->user_id !== $request->user()->id || !$recipe->active) {
-            return response()->json([
-                'success'    => false,
-                'message'    => 'Receita não encontrada.',
-                'error_code' => 'RECIPE_NOT_FOUND',
-            ], 404);
-        }
+        if ($denied = $this->authorizeRecipe($request, $recipe)) return $denied;
 
         $plan = $request->user()->load('plan')->plan;
         $recipe->load('ingredients');
@@ -104,13 +98,7 @@ class RecipeController extends Controller
 
     public function update(UpdateRecipeRequest $request, Recipe $recipe): JsonResponse
     {
-        if ($recipe->user_id !== $request->user()->id || !$recipe->active) {
-            return response()->json([
-                'success'    => false,
-                'message'    => 'Receita não encontrada.',
-                'error_code' => 'RECIPE_NOT_FOUND',
-            ], 404);
-        }
+        if ($denied = $this->authorizeRecipe($request, $recipe)) return $denied;
 
         $plan = $request->user()->load('plan')->plan;
 
@@ -134,13 +122,7 @@ class RecipeController extends Controller
 
     public function duplicate(Request $request, Recipe $recipe): JsonResponse
     {
-        if ($recipe->user_id !== $request->user()->id || !$recipe->active) {
-            return response()->json([
-                'success'    => false,
-                'message'    => 'Receita não encontrada.',
-                'error_code' => 'RECIPE_NOT_FOUND',
-            ], 404);
-        }
+        if ($denied = $this->authorizeRecipe($request, $recipe)) return $denied;
 
         $user = $request->user()->load('plan');
         $plan = $user->plan;
@@ -176,13 +158,7 @@ class RecipeController extends Controller
 
     public function destroy(Request $request, Recipe $recipe): JsonResponse
     {
-        if ($recipe->user_id !== $request->user()->id) {
-            return response()->json([
-                'success'    => false,
-                'message'    => 'Receita não encontrada.',
-                'error_code' => 'RECIPE_NOT_FOUND',
-            ], 404);
-        }
+        if ($denied = $this->authorizeRecipe($request, $recipe)) return $denied;
 
         $recipe->delete();
 
@@ -191,6 +167,18 @@ class RecipeController extends Controller
             'data'    => null,
             'message' => 'Receita excluída com sucesso.',
         ]);
+    }
+
+    private function authorizeRecipe(Request $request, Recipe $recipe): ?JsonResponse
+    {
+        if ($recipe->user_id !== $request->user()->id || !$recipe->active) {
+            return response()->json([
+                'success'    => false,
+                'message'    => 'Receita não encontrada.',
+                'error_code' => 'RECIPE_NOT_FOUND',
+            ], 404);
+        }
+        return null;
     }
 
     private function checkRecipeLimit(User $user): ?JsonResponse
@@ -230,15 +218,14 @@ class RecipeController extends Controller
             'updated_at'                => $recipe->updated_at,
             'ingredients'               => $cost['ingredients'],
             'ingredients_cost'          => $cost['ingredients_cost'],
-            'packaging_cost'            => $has_pricing ? $cost['packaging_cost']            : null,
-            'base_cost'                 => $cost['base_cost'],
+            'packaging_cost'            => $cost['packaging_cost'],
             'invisible_cost_pct'        => $has_pricing ? $cost['invisible_cost_pct']        : null,
             'invisible_cost'            => $has_pricing ? $cost['invisible_cost']            : null,
             'production_cost'           => $has_pricing ? $cost['production_cost']           : null,
             'profit_multiplier'         => $has_pricing ? $cost['profit_multiplier']         : null,
             'profit_margin_pct'         => $has_pricing ? $cost['profit_margin_pct']         : null,
             'suggested_price'           => $has_pricing ? $cost['suggested_price']           : null,
-            'total_cost'                => $cost['total_cost'],
+            'base_cost'                 => $cost['base_cost'],
             'cost_per_yield'            => $has_pricing ? $cost['cost_per_yield']            : null,
             'suggested_price_per_yield' => $has_pricing ? $cost['suggested_price_per_yield'] : null,
         ];

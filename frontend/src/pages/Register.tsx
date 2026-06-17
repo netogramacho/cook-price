@@ -24,7 +24,7 @@ export function Register() {
     setLoading(true)
     try {
       await AuthService.register(form)
-      navigate('/dashboard')
+      navigate('/verify-email')
     } catch (err: unknown) {
       const e = err as { errors?: Record<string, string[]>; message?: string }
       if (e.errors) setErrors(e.errors)

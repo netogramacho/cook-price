@@ -24,8 +24,8 @@
 |---|:---:|:---:|:---:|
 | **Receitas** | até 3 | até 15 | Ilimitado |
 | **Ingredientes** | até 15 | até 60 | Ilimitado |
-| Custo básico (ingredientes) | Sim | Sim | Sim |
-| Custo de embalagem | Não | Sim | Sim |
+| Custo básico (ingredientes + embalagem) | Sim | Sim | Sim |
+| Custo de embalagem | Sim | Sim | Sim |
 | Custos invisíveis | Não | Sim | Sim |
 | Custo de produção | Não | Sim | Sim |
 | Preço sugerido | Não | Sim | Sim |

@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AppHeader } from '../components/AppHeader'
+import { HintBanner } from '../components/ui/HintBanner'
+import { useHintBanner } from '../hooks/useHintBanner'
 import { Modal } from '../components/Modal'
 import { PageHeader } from '../components/ui/PageHeader'
 import { SearchBar } from '../components/ui/SearchBar'
@@ -37,6 +39,7 @@ interface RecipeForm {
 }
 
 export function Recipes() {
+  const hint = useHintBanner()
   const navigate = useNavigate()
   const { success, error } = useAppStore()
 
@@ -57,6 +60,7 @@ export function Recipes() {
 
   const [quickCreate, setQuickCreate] = useState({ visible: false, initialName: '', forceType: null as 'ingredient' | 'packaging' | null, targetIndex: -1, targetList: '' as 'ingredients' | 'packaging' })
 
+  const hasProd = !!getUser()?.plan.has_production
   const [produceRecipe, setProduceRecipe] = useState<Recipe | null>(null)
 
   const deleteRecipe = useConfirmAction<Recipe>({
@@ -186,6 +190,7 @@ export function Recipes() {
         <div className="container">
           <PageHeader title="Receitas" actionLabel="+ Nova Receita" onAction={openCreateModal} />
           <SearchBar placeholder="Buscar receita..." value={search} onChange={handleSearch} />
+          <HintBanner hint={hint} />
 
           <AsyncState loading={loading} error={loadError || null}
             empty={!recipes.length} emptyEntityName="receita" emptySearch={search}
@@ -196,7 +201,7 @@ export function Recipes() {
                   <div className="recipe-info">
                     <strong>{r.name}</strong>
                     <span>
-                      Custo total: R$ {fmtCurrency(r.total_cost)}
+                      Custo base: R$ {fmtCurrency(r.base_cost)}
                       {(r as unknown as Record<string, unknown>).cost_per_yield != null && (
                         <>&nbsp;·&nbsp;Por {r.yield_unit}: R$ {fmtCurrency((r as unknown as Record<string, unknown>).cost_per_yield as number)}</>
                       )}
@@ -206,7 +211,7 @@ export function Recipes() {
                     </span>
                   </div>
                   <div className="recipe-actions">
-                    <button className="btn btn-primary btn-sm" onClick={() => getUser()?.plan.has_production ? setProduceRecipe(r) : triggerPlanUpgrade('O registro de produções está disponível nos planos pagos.')}>Produzir</button>
+                    <button className="btn btn-primary btn-sm" onClick={() => hasProd ? setProduceRecipe(r) : triggerPlanUpgrade('O registro de produções está disponível nos planos pagos.')}>{hasProd ? 'Produzir' : '🔒 Produzir'}</button>
                     <button className="btn btn-secondary btn-sm" onClick={() => navigate(`/recipes/${r.id}`)}>Ver</button>
                     <button className="btn btn-secondary btn-sm" onClick={() => handleDuplicate(r.id)}>Duplicar</button>
                     <button className="btn btn-danger btn-sm" onClick={() => deleteRecipe.open(r)}>Excluir</button>
@@ -241,11 +246,15 @@ export function Recipes() {
               value={form.invisible_cost_pct}
               onChange={v => setForm(f => ({ ...f, invisible_cost_pct: Number(v) }))}
               error={modal.state.errors.invisible_cost_pct?.[0]}
+              locked={!getUser()?.plan.has_pricing}
+              onLockedClick={() => triggerPlanUpgrade('A precificação avançada está disponível nos planos pagos.')}
             />
             <ProfitMultiplierField
               value={form.profit_multiplier}
               onChange={v => setForm(f => ({ ...f, profit_multiplier: v }))}
               error={modal.state.errors.profit_multiplier?.[0]}
+              locked={!getUser()?.plan.has_pricing}
+              onLockedClick={() => triggerPlanUpgrade('A precificação avançada está disponível nos planos pagos.')}
             />
             <div className="modal-actions">
               <button type="button" className="btn btn-secondary" onClick={modal.close}>Cancelar</button>

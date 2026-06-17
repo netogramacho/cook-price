@@ -12,7 +12,10 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        $middleware->alias([
+            'plan.feature' => \App\Http\Middleware\RequiresPlanFeature::class,
+            'admin.token'  => \App\Http\Middleware\EnsureAdminToken::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

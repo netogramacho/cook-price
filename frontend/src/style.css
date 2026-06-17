@@ -367,6 +367,31 @@ a:hover { text-decoration: underline; }
 .critical-stock-empty { font-size: 14px; color: var(--text-muted); padding: 12px 0 4px; }
 .critical-stock-hint { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
 
+/* Hint banner */
+.hint-banner {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    background: #FFF8E7;
+    border: 1px solid #F5C842;
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    margin-bottom: 16px;
+}
+.hint-banner-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+.hint-banner-text { flex: 1; font-size: 14px; color: var(--text); line-height: 1.5; }
+.hint-banner-close {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-muted);
+    font-size: 14px;
+    padding: 0 2px;
+    flex-shrink: 0;
+    line-height: 1;
+}
+.hint-banner-close:hover { color: var(--text); }
+
 /* Onboarding card */
 .onboarding-card {
     background: var(--card-bg);
@@ -543,6 +568,12 @@ tr:hover td { background: #FDF5F5; }
 .cost-item-locked:hover { opacity: 0.75; }
 .cost-item-locked label { opacity: 0.7; }
 .cost-item-locked .locked-value { filter: blur(5px); user-select: none; }
+
+.form-field-locked { cursor: pointer; }
+.form-field-locked:hover { opacity: 0.75; }
+.form-field-locked label { opacity: 0.7; }
+.form-field-locked input,
+.form-field-locked .multiplier-control { filter: blur(3px); pointer-events: none; user-select: none; }
 .locked-value-row { display: flex; align-items: center; gap: 6px; }
 .locked-eye { flex-shrink: 0; opacity: 0.55; color: var(--primary); }
 
@@ -868,6 +899,13 @@ tr:hover td { background: #FDF5F5; }
 .onboarding-step--locked .onboarding-step-icon {
     background: var(--text-muted);
     font-size: 11px;
+}
+.onboarding-step--waiting {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+.onboarding-step--waiting:hover {
+    background: transparent;
 }
 .onboarding-step-badge {
     font-size: 11px;
@@ -1279,12 +1317,17 @@ tr:hover td { background: #FDF5F5; }
 /* Responsive */
 @media (max-width: 768px) {
     .app-sidebar {
+        top: 56px;
+        height: calc(100vh - 56px);
+        min-height: unset;
+        overflow-y: auto;
         transform: translateX(-100%);
         transition: transform 0.25s ease;
     }
     .app-sidebar.sidebar-open {
         transform: translateX(0);
     }
+    .sidebar-brand { display: none; }
     .mobile-topbar {
         display: flex;
         align-items: center;
@@ -1320,9 +1363,12 @@ tr:hover td { background: #FDF5F5; }
     .sidebar-overlay {
         display: block;
         position: fixed;
-        inset: 0;
+        top: 56px;
+        left: 0;
+        right: 0;
+        bottom: 0;
         background: rgba(0,0,0,0.4);
-        z-index: 100;
+        z-index: 99;
     }
     .app-main { margin-left: 0; padding: 72px 16px 24px; }
 }

@@ -1,8 +1,7 @@
-import { useState } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { useNavigate, useLocation, Link } from 'react-router-dom'
 import { BrandLogo } from './BrandLogo'
 import { Modal } from './Modal'
-import { PlanModal } from './PlanModal'
 import { FormField } from './ui/FormField'
 import { ProfitMultiplierField } from './ui/ProfitMultiplierField'
 import { InvisibleCostField } from './ui/InvisibleCostField'
@@ -39,8 +38,22 @@ export function AppHeader() {
   const { success, error } = useAppStore()
   const userName = getUser()?.name ?? ''
 
+  const hasPricing = !!getUser()?.plan.has_pricing
+
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [planModalOpen, setPlanModalOpen] = useState(false)
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') setSidebarOpen(false)
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [])
+
+  useEffect(() => {
+    document.body.style.overflow = sidebarOpen ? 'hidden' : ''
+    return () => { document.body.style.overflow = '' }
+  }, [sidebarOpen])
 
   const pwModal = useModal({ visible: false, loading: false, errors: {} as Record<string, string[]> })
   const [pwForm, setPwForm] = useState<ChangePasswordForm>({ current_password: '', password: '', password_confirmation: '' })
@@ -107,46 +120,42 @@ export function AppHeader() {
         <button className="sidebar-toggle" onClick={() => setSidebarOpen(o => !o)} aria-label="Menu">
           <span /><span /><span />
         </button>
-        <a href="/dashboard" className="header-brand"><BrandLogo height={36} /></a>
+        <Link to="/dashboard" className="header-brand"><BrandLogo height={36} /></Link>
       </div>
 
       {sidebarOpen && <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} />}
 
       <aside className={`app-sidebar${sidebarOpen ? ' sidebar-open' : ''}`}>
         <div className="sidebar-brand">
-          <a href="/dashboard" className="header-brand"><BrandLogo height={60} /></a>
+          <Link to="/dashboard" className="header-brand"><BrandLogo height={60} /></Link>
         </div>
         <nav className="sidebar-nav">
           {NAV_LINKS.map(link => (
-            <a
+            <Link
               key={link.path}
-              href={link.path}
+              to={link.path}
               className={pathname === link.path ? 'active' : ''}
               onClick={e => {
-                e.preventDefault()
                 if (link.path === '/producoes' && !getUser()?.plan.has_production) {
+                  e.preventDefault()
                   triggerPlanUpgrade('O histórico de produções está disponível nos planos pagos.')
-                } else {
-                  navigate(link.path)
                 }
                 setSidebarOpen(false)
               }}
             >
               {link.label}
-            </a>
+            </Link>
           ))}
         </nav>
         <div className="sidebar-user">
           <span className="user-name">{userName}</span>
           <span className="sidebar-plan-badge">{getUser()?.plan?.label ?? 'Gratuito'}</span>
-          <button className="btn btn-primary btn-sm btn-full" onClick={() => setPlanModalOpen(true)}>Meu Plano</button>
+          <button className="btn btn-primary btn-sm btn-full" onClick={() => triggerPlanUpgrade()}>Meu Plano</button>
           <button className="btn btn-secondary btn-sm btn-full" onClick={openSettings}>Configurações</button>
           <button className="btn btn-secondary btn-sm btn-full" onClick={openChangePassword}>Alterar Senha</button>
           <button className="btn btn-secondary btn-sm btn-full" onClick={handleLogout}>Sair</button>
         </div>
       </aside>
-
-      <PlanModal visible={planModalOpen} onClose={() => setPlanModalOpen(false)} />
 
       <Modal
         visible={pwModal.state.visible}
@@ -183,11 +192,15 @@ export function AppHeader() {
           value={settingsForm.invisible_cost_pct}
           onChange={v => setSettingsForm(f => ({ ...f, invisible_cost_pct: v }))}
           error={settingsModal.state.errors.invisible_cost_pct?.[0]}
+          locked={!hasPricing}
+          onLockedClick={() => triggerPlanUpgrade('A precificação avançada está disponível nos planos pagos.')}
         />
         <ProfitMultiplierField
           value={settingsForm.profit_multiplier}
           onChange={v => setSettingsForm(f => ({ ...f, profit_multiplier: v }))}
           error={settingsModal.state.errors.profit_multiplier?.[0]}
+          locked={!hasPricing}
+          onLockedClick={() => triggerPlanUpgrade('A precificação avançada está disponível nos planos pagos.')}
         />
       </Modal>
     </>

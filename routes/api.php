@@ -15,7 +15,9 @@ use App\Http\Controllers\WebhookController;
 use App\Http\Middleware\EnsureEmailIsVerified;
 use Illuminate\Support\Facades\Route;
 
-Route::post('admin/users/{userId}/plan', [AdminController::class, 'updateUserPlan']);
+Route::middleware('admin.token')->group(function () {
+    Route::post('admin/users/{userId}/plan', [AdminController::class, 'updateUserPlan']);
+});
 
 Route::get('plans', [PlanController::class, 'index']);
 
@@ -44,10 +46,12 @@ Route::middleware(['auth:sanctum', EnsureEmailIsVerified::class])->group(functio
     Route::post('recipes/{recipe}/duplicate', [RecipeController::class, 'duplicate']);
     Route::apiResource('recipes', RecipeController::class);
 
-    Route::get('productions/summary',          [ProductionController::class, 'summary']);
-    Route::get('productions',                  [ProductionController::class, 'index']);
-    Route::post('productions',                 [ProductionController::class, 'store']);
-    Route::delete('productions/{production}',  [ProductionController::class, 'destroy']);
+    Route::middleware('plan.feature:has_production')->group(function () {
+        Route::get('productions/summary',         [ProductionController::class, 'summary']);
+        Route::get('productions',                 [ProductionController::class, 'index']);
+        Route::post('productions',                [ProductionController::class, 'store']);
+        Route::delete('productions/{production}', [ProductionController::class, 'destroy']);
+    });
 
     Route::get('subscriptions/current', [SubscriptionController::class, 'current']);
     Route::post('subscriptions',        [SubscriptionController::class, 'store']);

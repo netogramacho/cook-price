@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { AppHeader } from '../components/AppHeader'
+import { HintBanner } from '../components/ui/HintBanner'
+import { useHintBanner } from '../hooks/useHintBanner'
 import { Modal } from '../components/Modal'
 import { PageHeader } from '../components/ui/PageHeader'
 import { SearchBar } from '../components/ui/SearchBar'
@@ -35,6 +37,7 @@ type ModalStep = 'type-select' | 'form'
 const emptyForm = (): ModalForm => ({ name: '', type: '', unit: '', package_size: '', last_price: '' })
 
 export function Ingredients() {
+  const hint = useHintBanner()
   const { success, error } = useAppStore()
 
   const { items, hasMore, loading, loadingMore, loadError, search, handleSearch, loadMore, refetch } =
@@ -107,6 +110,7 @@ export function Ingredients() {
         <div className="container">
           <PageHeader title="Ingredientes" actionLabel="+ Novo Ingrediente" onAction={openCreate} />
           <SearchBar placeholder="Buscar ingrediente..." value={search} onChange={handleSearch} />
+          <HintBanner hint={hint} />
 
           <AsyncState loading={loading} error={loadError || null}
             empty={!items.length} emptyEntityName="ingrediente" emptySearch={search}

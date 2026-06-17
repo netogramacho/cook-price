@@ -19,6 +19,7 @@ class Recipe extends Model
         'yield_unit',
         'invisible_cost_pct',
         'profit_multiplier',
+        'active',
     ];
 
     protected function casts(): array
@@ -27,6 +28,7 @@ class Recipe extends Model
             'yield'              => 'decimal:2',
             'invisible_cost_pct' => 'decimal:2',
             'profit_multiplier'  => 'decimal:2',
+            'active'             => 'boolean',
         ];
     }
 

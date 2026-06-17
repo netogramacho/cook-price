@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\Subscription\StoreSubscriptionRequest;
 use App\Mail\SubscriptionCancelledByUser;
 use App\Models\Plan;
 use App\Models\Subscription;
@@ -9,7 +10,6 @@ use App\Services\MercadoPagoService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
-use Illuminate\Validation\Rule;
 
 class SubscriptionController extends Controller
 {
@@ -33,12 +33,8 @@ class SubscriptionController extends Controller
         ]);
     }
 
-    public function store(Request $request): JsonResponse
+    public function store(StoreSubscriptionRequest $request): JsonResponse
     {
-        $request->validate([
-            'plan' => ['required', Rule::in(Plan::paidNames())],
-        ]);
-
         $user = $request->user()->load('plan');
 
         if ($user->plan->name === $request->plan) {

@@ -32,7 +32,7 @@ export const useAppStore = create<AppStore>((set) => ({
   error: (message) => {
     const id = nextId++
     set((s) => ({ notifications: [...s.notifications, { id, message, type: 'error' }] }))
-    setTimeout(() => set((s) => ({ notifications: s.notifications.filter(n => n.id !== id) })), 3000)
+    setTimeout(() => set((s) => ({ notifications: s.notifications.filter(n => n.id !== id) })), 5000)
   },
 
   remove: (id) => set((s) => ({ notifications: s.notifications.filter(n => n.id !== id) })),

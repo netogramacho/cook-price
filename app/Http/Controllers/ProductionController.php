@@ -51,10 +51,11 @@ class ProductionController extends Controller
 
     public function index(Request $request): JsonResponse
     {
+        $per_page    = min((int) $request->get('per_page', 20), 100);
         $productions = Production::where('user_id', $request->user()->id)
             ->orderBy('produced_at', 'desc')
             ->orderBy('created_at', 'desc')
-            ->paginate(20);
+            ->paginate($per_page);
 
         return response()->json([
             'success' => true,
@@ -126,13 +127,7 @@ class ProductionController extends Controller
 
     public function destroy(Request $request, Production $production): JsonResponse
     {
-        if ($production->user_id !== $request->user()->id) {
-            return response()->json([
-                'success'    => false,
-                'message'    => 'Produção não encontrada.',
-                'error_code' => 'PRODUCTION_NOT_FOUND',
-            ], 404);
-        }
+        if ($guard = $this->authorizeProduction($request, $production)) return $guard;
 
         $production->delete();
 
@@ -141,5 +136,17 @@ class ProductionController extends Controller
             'data'    => null,
             'message' => 'Produção excluída com sucesso.',
         ]);
+    }
+
+    private function authorizeProduction(Request $request, Production $production): ?JsonResponse
+    {
+        if ($production->user_id !== $request->user()->id) {
+            return response()->json([
+                'success'    => false,
+                'message'    => 'Produção não encontrada.',
+                'error_code' => 'PRODUCTION_NOT_FOUND',
+            ], 404);
+        }
+        return null;
     }
 }

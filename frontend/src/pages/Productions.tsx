@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { getUser } from '../lib/auth'
 import { AppHeader } from '../components/AppHeader'
 import { PageHeader } from '../components/ui/PageHeader'
 import { AsyncState } from '../components/ui/AsyncState'
@@ -19,6 +20,11 @@ function fmtDate(dateStr: string) {
 export function Productions() {
   const navigate = useNavigate()
   const { success, error } = useAppStore()
+
+  const hasProd = !!getUser()?.plan.has_production
+  useEffect(() => {
+    if (!hasProd) navigate('/dashboard')
+  }, [hasProd])
 
   const [summary, setSummary] = useState<ProductionSummary | null>(null)
   const [items, setItems] = useState<Production[]>([])
@@ -48,7 +54,7 @@ export function Productions() {
   }
 
   useEffect(() => {
-    ProductionService.getSummary().then(setSummary).catch(() => {})
+    ProductionService.getSummary().then(setSummary).catch(() => error('Erro ao carregar resumo de produções.'))
     fetchPage(1).finally(() => setLoading(false))
   }, [])
 
@@ -65,26 +71,24 @@ export function Productions() {
         <div className="container">
           <PageHeader title="Produções" />
 
-          {summary && (
-            <div className="production-summary">
-              <div className="production-summary-card">
-                <span className="production-summary-label">Hoje</span>
-                <strong className="production-summary-cost">R$ {fmtCurrency(summary.today.cost)}</strong>
-                {summary.today.batches > 0
-                  ? <span className="production-summary-meta">{summary.today.batches} {summary.today.batches === 1 ? 'lote' : 'lotes'} · {fmtQuantity(summary.today.items)} itens</span>
-                  : <span className="production-summary-meta">Nenhuma produção hoje</span>
-                }
-              </div>
-              <div className="production-summary-card production-summary-card--month">
-                <span className="production-summary-label">Este mês</span>
-                <strong className="production-summary-cost">R$ {fmtCurrency(summary.month.cost)}</strong>
-                {summary.month.batches > 0
-                  ? <span className="production-summary-meta">{summary.month.batches} {summary.month.batches === 1 ? 'lote' : 'lotes'} · {fmtQuantity(summary.month.items)} itens</span>
-                  : <span className="production-summary-meta">Nenhuma produção este mês</span>
-                }
-              </div>
+          <div className="production-summary">
+            <div className="production-summary-card">
+              <span className="production-summary-label">Hoje</span>
+              <strong className="production-summary-cost">{summary ? `R$ ${fmtCurrency(summary.today.cost)}` : '—'}</strong>
+              {summary && (summary.today.batches > 0
+                ? <span className="production-summary-meta">{summary.today.batches} {summary.today.batches === 1 ? 'lote' : 'lotes'} · {fmtQuantity(summary.today.items)} itens</span>
+                : <span className="production-summary-meta">Nenhuma produção hoje</span>
+              )}
             </div>
-          )}
+            <div className="production-summary-card production-summary-card--month">
+              <span className="production-summary-label">Este mês</span>
+              <strong className="production-summary-cost">{summary ? `R$ ${fmtCurrency(summary.month.cost)}` : '—'}</strong>
+              {summary && (summary.month.batches > 0
+                ? <span className="production-summary-meta">{summary.month.batches} {summary.month.batches === 1 ? 'lote' : 'lotes'} · {fmtQuantity(summary.month.items)} itens</span>
+                : <span className="production-summary-meta">Nenhuma produção este mês</span>
+              )}
+            </div>
+          </div>
 
           <AsyncState loading={loading} error={loadError ? 'Erro ao carregar produções.' : null}
             empty={!items.length} emptyEntityName="produção" emptySearch=""

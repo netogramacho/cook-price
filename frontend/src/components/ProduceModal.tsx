@@ -40,9 +40,7 @@ export function ProduceModal({ recipe, onClose, onSuccess }: Props) {
     onClose()
   }
 
-  const unitCost = recipe && recipe.production_cost && recipe.yield
-    ? recipe.production_cost / recipe.yield
-    : null
+  const unitCost = recipe?.cost_per_yield ?? null
 
   return (
     <Modal

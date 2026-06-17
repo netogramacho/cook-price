@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\Ingredient\StoreIngredientRequest;
 use App\Http\Requests\Ingredient\UpdateIngredientRequest;
 use App\Models\Ingredient;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -31,18 +32,8 @@ class IngredientController extends Controller
     public function store(StoreIngredientRequest $request): JsonResponse
     {
         $user = $request->user()->load('plan');
-        $plan = $user->plan;
 
-        if ($plan->max_ingredients !== null) {
-            $count = Ingredient::where('user_id', $user->id)->where('active', true)->count();
-            if ($count >= $plan->max_ingredients) {
-                return response()->json([
-                    'success'    => false,
-                    'message'    => "Seu plano permite no máximo {$plan->max_ingredients} ingredientes. Faça upgrade para continuar.",
-                    'error_code' => 'PLAN_LIMIT_REACHED',
-                ], 403);
-            }
-        }
+        if ($limit = $this->checkIngredientLimit($user)) return $limit;
 
         $ingredient = Ingredient::create([
             'user_id'      => $user->id,
@@ -63,13 +54,7 @@ class IngredientController extends Controller
 
     public function show(Request $request, Ingredient $ingredient): JsonResponse
     {
-        if ($ingredient->user_id !== $request->user()->id || !$ingredient->active) {
-            return response()->json([
-                'success'    => false,
-                'message'    => 'Ingrediente não encontrado.',
-                'error_code' => 'INGREDIENT_NOT_FOUND',
-            ], 404);
-        }
+        if ($denied = $this->authorizeIngredient($request, $ingredient)) return $denied;
 
         return response()->json([
             'success' => true,
@@ -80,13 +65,7 @@ class IngredientController extends Controller
 
     public function update(UpdateIngredientRequest $request, Ingredient $ingredient): JsonResponse
     {
-        if ($ingredient->user_id !== $request->user()->id || !$ingredient->active) {
-            return response()->json([
-                'success'    => false,
-                'message'    => 'Ingrediente não encontrado.',
-                'error_code' => 'INGREDIENT_NOT_FOUND',
-            ], 404);
-        }
+        if ($denied = $this->authorizeIngredient($request, $ingredient)) return $denied;
 
         $ingredient->update($request->only('name', 'type', 'unit', 'package_size', 'last_price', 'min_stock'));
 
@@ -97,15 +76,38 @@ class IngredientController extends Controller
         ]);
     }
 
-    public function destroy(Request $request, Ingredient $ingredient): JsonResponse
+    private function authorizeIngredient(Request $request, Ingredient $ingredient): ?JsonResponse
     {
-        if ($ingredient->user_id !== $request->user()->id) {
+        if ($ingredient->user_id !== $request->user()->id || !$ingredient->active) {
             return response()->json([
                 'success'    => false,
                 'message'    => 'Ingrediente não encontrado.',
                 'error_code' => 'INGREDIENT_NOT_FOUND',
             ], 404);
         }
+        return null;
+    }
+
+    private function checkIngredientLimit(User $user): ?JsonResponse
+    {
+        $plan = $user->plan;
+        if ($plan->max_ingredients === null) return null;
+
+        $count = Ingredient::where('user_id', $user->id)->where('active', true)->count();
+        if ($count < $plan->max_ingredients) return null;
+
+        return response()->json([
+            'success'    => false,
+            'message'    => "Seu plano permite no máximo {$plan->max_ingredients} ingredientes. Faça upgrade para continuar.",
+            'error_code' => 'PLAN_LIMIT_REACHED',
+        ], 403);
+    }
+
+    public function destroy(Request $request, Ingredient $ingredient): JsonResponse
+    {
+        if ($denied = $this->authorizeIngredient($request, $ingredient)) return $denied;
+
+        if ($conflict = $this->checkIngredientInUse($ingredient)) return $conflict;
 
         $ingredient->delete();
 
@@ -114,5 +116,19 @@ class IngredientController extends Controller
             'data'    => null,
             'message' => 'Ingrediente excluído com sucesso.',
         ]);
+    }
+
+    private function checkIngredientInUse(Ingredient $ingredient): ?JsonResponse
+    {
+        $count = $ingredient->recipes()->where('active', true)->count();
+        if ($count === 0) return null;
+
+        $receitas = $count === 1 ? 'receita' : 'receitas';
+
+        return response()->json([
+            'success'    => false,
+            'message'    => "Este ingrediente está sendo usado em {$count} {$receitas}. Remova-o das receitas antes de excluir.",
+            'error_code' => 'INGREDIENT_IN_USE',
+        ], 409);
     }
 }

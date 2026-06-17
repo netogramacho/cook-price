@@ -13,7 +13,7 @@ export const AuthService = {
     setAuth(res.data.token, res.data.user)
   },
 
-  async register(data: { name: string; email: string; password: string; password_confirmation: string }): Promise<void> {
+  async register(data: { name: string; email: string; phone: string; password: string; password_confirmation: string }): Promise<void> {
     const res = await api.post<LoginResponse>('/auth/register', data)
     setAuth(res.data.token, res.data.user)
   },

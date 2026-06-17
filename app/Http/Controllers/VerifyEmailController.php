@@ -27,7 +27,7 @@ class VerifyEmailController extends Controller
             $user->markEmailAsVerified();
         }
 
-        return redirect($frontendUrl . '/login?verified=1');
+        return redirect($frontendUrl . '/verify-email?verified=1');
     }
 
     public function resend(Request $request): JsonResponse

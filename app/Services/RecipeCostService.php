@@ -9,7 +9,9 @@ class RecipeCostService
     public function calculate(Recipe $recipe): array
     {
         $ingredients = $recipe->ingredients->map(function ($ingredient) {
-            $price_per_unit = $ingredient->last_price / $ingredient->package_size;
+            $price_per_unit = $ingredient->package_size > 0
+                ? $ingredient->last_price / $ingredient->package_size
+                : 0;
             $subtotal       = $price_per_unit * $ingredient->pivot->quantity;
 
             return [
@@ -56,7 +58,6 @@ class RecipeCostService
             'profit_multiplier'         => $multiplier,
             'profit_margin_pct'         => $profit_margin_pct,
             'suggested_price'           => $suggested_price,
-            'total_cost'                => $base_cost,
             'cost_per_yield'            => $cost_per_yield,
             'suggested_price_per_yield' => $suggested_price_per_yield,
         ];

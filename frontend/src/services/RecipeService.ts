@@ -3,34 +3,34 @@ import { api } from '../lib/api'
 export interface Recipe {
   id: string
   name: string
-  description?: string | null
+  description: string | null
   yield: number
   yield_unit: string
-  invisible_cost_pct?: number
-  profit_multiplier: number
+  active: boolean
+  created_at: string
+  updated_at: string
+  ingredients: RecipeIngredient[]
   ingredients_cost: number
   packaging_cost: number
-  total_cost: number
+  invisible_cost_pct: number | null
+  invisible_cost: number | null
   production_cost: number | null
-  sale_price: number
-  ingredients?: RecipeIngredient[]
-  packaging?: RecipePackaging[]
+  profit_multiplier: number | null
+  profit_margin_pct: number | null
+  suggested_price: number | null
+  base_cost: number
+  cost_per_yield: number | null
+  suggested_price_per_yield: number | null
 }
 
 export interface RecipeIngredient {
   id: string
-  ingredient_id: string
   name: string
   type: string
   unit: string
-  quantity: number
-  subtotal: number
-}
-
-export interface RecipePackaging {
-  id: string
-  ingredient_id: string
-  name: string
+  package_size: number
+  last_price: number
+  price_per_unit: number
   quantity: number
   subtotal: number
 }

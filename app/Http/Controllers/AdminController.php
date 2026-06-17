@@ -12,14 +12,6 @@ class AdminController extends Controller
 {
     public function updateUserPlan(Request $request, string $userId): JsonResponse
     {
-        if ($request->header('X-Admin-Token') !== config('app.admin_token')) {
-            return response()->json([
-                'success'    => false,
-                'message'    => 'Não autorizado.',
-                'error_code' => 'UNAUTHORIZED',
-            ], 401);
-        }
-
         $request->validate([
             'plan' => ['required', Rule::in(Plan::allNames())],
         ]);

@@ -1,18 +1,29 @@
 import { BrandLogo } from '../components/BrandLogo'
 import { useState, useEffect } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import { AuthService } from '../services/AuthService'
+import { UserService } from '../services/UserService'
 import { useAppStore } from '../store/useAppStore'
-import { getUser } from '../lib/auth'
+import { getUser, setUser } from '../lib/auth'
 
 export function VerifyEmail() {
   const [searchParams] = useSearchParams()
+  const navigate = useNavigate()
   const { success, error } = useAppStore()
   const [loading, setLoading] = useState(false)
   const [cooldown, setCooldown] = useState(0)
   const user = getUser()
 
   useEffect(() => {
+    if (searchParams.get('verified')) {
+      UserService.get()
+        .then(freshUser => {
+          setUser(freshUser)
+          navigate('/dashboard', { replace: true })
+        })
+        .catch(() => error('Erro ao atualizar dados do usuário. Faça login novamente.'))
+      return
+    }
     if (searchParams.get('error')) {
       error('Link de verificação inválido ou expirado. Solicite um novo abaixo.')
     }

@@ -69,7 +69,7 @@ async function request<T>(method: string, endpoint: string, data?: unknown): Pro
       if (errorCode === 'EMAIL_NOT_VERIFIED') {
         window.location.href = '/verify-email'
       }
-      if (errorCode === 'PLAN_LIMIT_REACHED' || errorCode === 'PLAN_FEATURE_UNAVAILABLE') {
+      if (errorCode === 'PLAN_LIMIT_REACHED' || errorCode === 'PLAN_FEATURE_UNAVAILABLE' || errorCode === 'PLAN_FEATURE_LOCKED') {
         const message = (err as { message?: string }).message ?? 'Limite do plano atingido.'
         notifyPlanUpgrade(message)
         throw new PlanError(message)

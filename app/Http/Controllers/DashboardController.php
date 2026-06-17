@@ -12,11 +12,13 @@ class DashboardController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $user_id = $request->user()->id;
+        $user = $request->user()->load('plan');
 
-        $recipes_count     = Recipe::where('user_id', $user_id)->where('active', true)->count();
-        $ingredients_count = Ingredient::where('user_id', $user_id)->where('active', true)->count();
-        $productions_count = Production::where('user_id', $user_id)->count();
+        $recipes_count     = Recipe::where('user_id', $user->id)->where('active', true)->count();
+        $ingredients_count = Ingredient::where('user_id', $user->id)->where('active', true)->count();
+        $productions_count = $user->plan->has_production
+            ? Production::where('user_id', $user->id)->count()
+            : null;
 
         return response()->json([
             'success' => true,

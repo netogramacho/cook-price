@@ -24,16 +24,14 @@ import { handleApiError } from '../utils/apiError'
 import { fmtCurrency, fmtQuantity } from '../utils/formatters'
 import { parseDecimal } from '../utils/inputs'
 
-type RecipeExt = Recipe & Record<string, unknown>
-
 export function RecipeDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { success, error } = useAppStore()
 
-  const [recipe, setRecipe] = useState<RecipeExt | null>(null)
+  const [recipe, setRecipe] = useState<Recipe | null>(null)
   const [loading, setLoading] = useState(true)
-  const [loadError, setLoadError] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   const editModal = useModal({ visible: false, loading: false, errors: {} as Record<string, string[]> })
   const [editForm, setEditForm] = useState({ name: '', description: '', yield: '', yield_unit: '', invisible_cost_pct: '', profit_multiplier: 3 })
@@ -48,16 +46,16 @@ export function RecipeDetail() {
   const removeIngredient = useConfirmAction<RecipeIngredient>({
     onConfirm: async (item) => {
       const updated = await RecipeService.update(id!, { ingredients: buildIngredientsPayload({ removeId: item.id }) })
-      setRecipe(updated as RecipeExt)
+      setRecipe(updated)
       success('Ingrediente removido.')
     },
     onError: error,
   })
 
   async function fetchRecipe() {
-    setLoading(true); setLoadError(false)
-    try { setRecipe(await RecipeService.getById(id!) as RecipeExt) }
-    catch { setLoadError(true) }
+    setLoading(true); setLoadError(null)
+    try { setRecipe(await RecipeService.getById(id!)) }
+    catch (err) { setLoadError((err as any)?.message ?? 'Erro ao carregar receita. Tente novamente.') }
     finally { setLoading(false) }
   }
 
@@ -67,7 +65,7 @@ export function RecipeDetail() {
     if (!recipe?.ingredients) return []
     const base = (recipe.ingredients as RecipeIngredient[])
       .filter(i => i.id !== opts.removeId)
-      .map(i => ({ ingredient_id: i.ingredient_id ?? i.id, quantity: parseFloat(String(i.quantity)) }))
+      .map(i => ({ ingredient_id: i.id, quantity: parseFloat(String(i.quantity)) }))
     return opts.add ? [...base, opts.add] : base
   }
 
@@ -93,7 +91,7 @@ export function RecipeDetail() {
         invisible_cost_pct: parseDecimal(String(editForm.invisible_cost_pct)),
         profit_multiplier: parseDecimal(String(editForm.profit_multiplier)),
       })
-      setRecipe(updated as RecipeExt)
+      setRecipe(updated)
       success('Receita atualizada com sucesso.')
       editModal.close()
     } catch (err) {
@@ -124,7 +122,7 @@ export function RecipeDetail() {
     addModal.startSubmit()
     try {
       const updated = await RecipeService.update(id!, { ingredients: buildIngredientsPayload({ add: { ingredient_id: addForm.ingredient_id, quantity: parseDecimal(addForm.quantity) } }) })
-      setRecipe(updated as RecipeExt)
+      setRecipe(updated)
       success('Ingrediente adicionado.')
       addModal.close()
     } catch (err) {
@@ -150,7 +148,7 @@ export function RecipeDetail() {
         quantity: i.id === targetId ? newQty : parseFloat(String(i.quantity)),
       }))
       const updated = await RecipeService.update(id!, { ingredients })
-      setRecipe(updated as RecipeExt)
+      setRecipe(updated)
       success('Quantidade atualizada.')
       editQtyModal.close()
     } catch (err) {
@@ -160,6 +158,9 @@ export function RecipeDetail() {
     }
   }
 
+  const hasPricing = !!getUser()?.plan.has_pricing
+  const hasProd = !!getUser()?.plan.has_production
+
   const [produceOpen, setProduceOpen] = useState(false)
 
   const EyeIcon = () => (
@@ -168,7 +169,7 @@ export function RecipeDetail() {
       <circle cx="12" cy="12" r="3"/>
     </svg>
   )
-  const ingredients = (recipe?.ingredients ?? []) as RecipeIngredient[]
+  const ingredients = recipe?.ingredients ?? []
 
   return (
     <div className="app-layout">
@@ -177,17 +178,17 @@ export function RecipeDetail() {
         <div className="container">
           <a href="#" className="back-link" onClick={e => { e.preventDefault(); navigate('/recipes') }}>← Voltar para Receitas</a>
 
-          <AsyncState loading={loading} error={loadError ? 'Receita não encontrada.' : null} empty={false}>
+          <AsyncState loading={loading} error={loadError} empty={false}>
             {recipe && (
               <>
                 <div className="recipe-detail-header">
                   <div>
                     <h1 className="recipe-detail-title">{recipe.name}</h1>
                     {recipe.description && <p className="recipe-detail-desc">{String(recipe.description)}</p>}
-                    <p className="recipe-meta">Rendimento: {fmtCurrency(recipe.yield)} {recipe.yield_unit}</p>
+                    <p className="recipe-meta">Rendimento: {fmtQuantity(recipe.yield)} {recipe.yield_unit}</p>
                   </div>
                   <div className="recipe-header-actions">
-                    <button className="btn btn-primary" onClick={() => getUser()?.plan.has_production ? setProduceOpen(true) : triggerPlanUpgrade('O registro de produções está disponível nos planos pagos.')}>Produzir</button>
+                    <button className="btn btn-primary" onClick={() => hasProd ? setProduceOpen(true) : triggerPlanUpgrade('O registro de produções está disponível nos planos pagos.')}>{hasProd ? 'Produzir' : '🔒 Produzir'}</button>
                     <button className="btn btn-secondary" onClick={openEdit}>Editar</button>
                   </div>
                 </div>
@@ -197,14 +198,12 @@ export function RecipeDetail() {
                     <label>Ingredientes</label>
                     <strong>R$ {fmtCurrency(recipe.ingredients_cost)}</strong>
                   </div>
+                  <div className="cost-item">
+                    <label>Embalagem</label>
+                    <strong>R$ {fmtCurrency(recipe.packaging_cost)}</strong>
+                  </div>
                   {recipe.production_cost != null ? (
                     <>
-                      {Number(recipe.packaging_cost) > 0 && (
-                        <div className="cost-item">
-                          <label>Embalagem</label>
-                          <strong>R$ {fmtCurrency(recipe.packaging_cost)}</strong>
-                        </div>
-                      )}
                       {Number(recipe.invisible_cost_pct) > 0 && (
                         <div className="cost-item">
                           <label>Custos Invisíveis ({String(recipe.invisible_cost_pct)}%)</label>
@@ -321,11 +320,15 @@ export function RecipeDetail() {
           value={editForm.invisible_cost_pct}
           onChange={v => setEditForm(f => ({ ...f, invisible_cost_pct: v }))}
           error={editModal.state.errors.invisible_cost_pct?.[0]}
+          locked={!hasPricing}
+          onLockedClick={() => triggerPlanUpgrade('A precificação avançada está disponível nos planos pagos.')}
         />
         <ProfitMultiplierField
           value={editForm.profit_multiplier}
           onChange={v => setEditForm(f => ({ ...f, profit_multiplier: v }))}
           error={editModal.state.errors.profit_multiplier?.[0]}
+          locked={!hasPricing}
+          onLockedClick={() => triggerPlanUpgrade('A precificação avançada está disponível nos planos pagos.')}
         />
       </Modal>
 
