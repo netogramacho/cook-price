@@ -1,13 +1,28 @@
 import { api } from '../lib/api'
 
 export interface ProductionSnapshot {
-  recipe_name: string
-  recipe_updated_at: string
+  // Produções novas referenciam um Produto; campos de receita ficam para histórico antigo.
+  product_name?: string
+  product_updated_at?: string
+  recipe_name?: string
+  recipe_updated_at?: string
   yield: number
   yield_unit: string
   invisible_cost_pct: number
   profit_multiplier: number
-  ingredients: {
+  recipes?: {
+    name: string
+    cost_per_yield: number
+    quantity: number
+    subtotal: number
+  }[]
+  insumos?: {
+    name: string
+    unit: string
+    quantity: number
+    subtotal: number
+  }[]
+  ingredients?: {
     name: string
     type: string
     unit: string
@@ -15,8 +30,9 @@ export interface ProductionSnapshot {
     unit_price: number
     subtotal: number
   }[]
-  ingredients_cost: number
-  packaging_cost: number
+  recipes_cost?: number
+  insumos_cost?: number
+  ingredients_cost?: number
   invisible_cost: number
   production_cost: number
   suggested_price_per_yield: number
@@ -36,6 +52,7 @@ export interface ProductionSummary {
 export interface Production {
   id: string
   recipe_id: string | null
+  product_id: string | null
   quantity_recipes: number
   total_yield: number
   total_cost: number
@@ -44,6 +61,7 @@ export interface Production {
   snapshot: ProductionSnapshot
   produced_at: string
   created_at: string
+  status: 'completed' | 'cancelled'
 }
 
 export const ProductionService = {
@@ -58,12 +76,13 @@ export const ProductionService = {
     return { items: p.data, meta: { current_page: p.current_page, last_page: p.last_page, total: p.total } }
   },
 
-  async create(data: { recipe_id: string; notes?: string }): Promise<Production> {
+  async create(data: { product_id: string; notes?: string }): Promise<Production> {
     const res = await api.post<{ data: Production }>('/productions', data)
     return res.data
   },
 
-  async delete(id: string): Promise<void> {
-    await api.delete(`/productions/${id}`)
+  async cancel(id: string): Promise<Production> {
+    const res = await api.patch<{ data: Production }>(`/productions/${id}/cancel`)
+    return res.data
   },
 }

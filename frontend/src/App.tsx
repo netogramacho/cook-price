@@ -10,8 +10,11 @@ import { ResetPassword } from './pages/ResetPassword'
 import { VerifyEmail } from './pages/VerifyEmail'
 import { Dashboard } from './pages/Dashboard'
 import { Ingredients } from './pages/Ingredients'
+import { Insumos } from './pages/Insumos'
 import { Recipes } from './pages/Recipes'
 import { RecipeDetail } from './pages/RecipeDetail'
+import { Products } from './pages/Products'
+import { ProductDetail } from './pages/ProductDetail'
 import { Productions } from './pages/Productions'
 import { NotFound } from './pages/NotFound'
 import { isAuthenticated, isEmailVerified } from './lib/auth'
@@ -73,8 +76,11 @@ export function App() {
         <Route path="/verify-email" element={<UnverifiedRoute><VerifyEmail /></UnverifiedRoute>} />
         <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
         <Route path="/ingredients" element={<ProtectedRoute><Ingredients /></ProtectedRoute>} />
+        <Route path="/insumos" element={<ProtectedRoute><Insumos /></ProtectedRoute>} />
         <Route path="/recipes" element={<ProtectedRoute><Recipes /></ProtectedRoute>} />
         <Route path="/recipes/:id" element={<ProtectedRoute><RecipeDetail /></ProtectedRoute>} />
+        <Route path="/produtos" element={<ProtectedRoute><Products /></ProtectedRoute>} />
+        <Route path="/produtos/:id" element={<ProtectedRoute><ProductDetail /></ProtectedRoute>} />
         <Route path="/producoes" element={<ProtectedRoute><Productions /></ProtectedRoute>} />
         <Route path="*" element={<NotFound />} />
       </Routes>

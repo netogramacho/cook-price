@@ -1,38 +1,43 @@
 # Preciva — Funcionalidades por Plano
 
+Modelo do produto em 3 camadas: **Ingredientes → Receita (preparo) → Produto (vendável)**, mais o registro de **Lotes** (produção).
+
 ## Funcionalidades do Produto
 
 | Funcionalidade | Descrição |
 |---|---|
-| **Ingredientes** | CRUD com preço por embalagem e unidade de medida |
-| **Receitas** | CRUD com lista de ingredientes e embalagens por quantidade |
-| **Custo básico** | Custo total dos ingredientes de uma receita |
-| **Custo de embalagem** | Custo das embalagens somado ao custo da receita |
-| **Custos invisíveis** | Percentual configurável sobre o custo base (gás, energia, etc.) |
-| **Custo de produção** | Ingredientes + embalagem + custos invisíveis |
-| **Preço sugerido** | Calculado via multiplicador de lucro, exibido por receita e por unidade de rendimento |
-| **Margem de lucro** | Percentual derivado do multiplicador configurado |
-| **Registrar produção** | Registrar um lote produzido de uma receita com snapshot imutável dos custos |
-| **Histórico de produções** | Listagem paginada de todas as produções com data, receita, rendimento e custo |
-| **Resumo de produções** | Custo, lotes e itens produzidos hoje e no mês atual |
+| **Ingredientes** | CRUD de matéria-prima, com preço por embalagem e unidade de medida |
+| **Insumos** | CRUD de embalagem/finalização (caixas, sacos, etiquetas) — cadastro próprio, separado dos ingredientes |
+| **Receitas (preparos)** | CRUD com a lista de ingredientes; é o preparo (massa, recheio, base) |
+| **Custo da receita** | Custo dos ingredientes de uma receita — sempre visível |
+| **Custos invisíveis** | Percentual configurável sobre o custo base da receita (gás, energia, água, mão de obra) |
+| **Custo de produção da receita** | Ingredientes + custos invisíveis, com custo por unidade de rendimento |
+| **Produtos** | Item vendável: combina receitas + insumos + ingredientes avulsos de finalização |
+| **Preço de venda** | Margem (multiplicador de lucro) e preço sugerido por unidade — definidos no produto |
+| **Registrar produção (lote)** | Registra um lote produzido de um produto, com snapshot imutável dos custos do momento |
+| **Histórico de lotes** | Listagem paginada das produções com data, produto, rendimento e custo |
+| **Resumo de lotes** | Custo, lotes e itens produzidos hoje e no mês atual |
+
+> A precificação migrou da receita para o **produto**: a receita mostra o custo de produzir o preparo; o preço de venda vive no produto, que combina receitas + insumos.
 
 ---
 
 ## Divisão por Plano
 
-| Funcionalidade | Gratuito | Basic | Plus |
+| Funcionalidade | Gratuito | Básico | Pro |
 |---|:---:|:---:|:---:|
 | **Receitas** | até 3 | até 15 | Ilimitado |
-| **Ingredientes** | até 15 | até 60 | Ilimitado |
-| Custo básico (ingredientes + embalagem) | Sim | Sim | Sim |
-| Custo de embalagem | Sim | Sim | Sim |
+| **Ingredientes + insumos** (limite combinado) | até 15 | até 60 | Ilimitado |
+| Cadastro de ingredientes e insumos | Sim | Sim | Sim |
+| Custo da receita (ingredientes) | Sim | Sim | Sim |
 | Custos invisíveis | Não | Sim | Sim |
-| Custo de produção | Não | Sim | Sim |
-| Preço sugerido | Não | Sim | Sim |
-| Margem de lucro | Não | Sim | Sim |
-| Registrar produção | Não | Não | Sim |
-| Histórico de produções | Não | Não | Sim |
-| Resumo de produções | Não | Não | Sim |
+| Custo de produção da receita | Não | Sim | Sim |
+| **Produtos** (montar e precificar) | Não | até 15 | Ilimitado |
+| Margem + preço sugerido de venda | Não | Sim | Sim |
+| Registrar produção (lotes) | Não | Não | Sim |
+| Histórico e resumo de lotes | Não | Não | Sim |
+
+> O limite de **ingredientes** e **insumos** é compartilhado (mesmo cadastro de matéria-prima).
 
 ---
 
@@ -41,15 +46,17 @@
 | Plano | Preço/mês |
 |---|---|
 | Gratuito | R$ 0 |
-| Basic | R$ 19 |
-| Plus | R$ 39 |
+| Básico | R$ 14,90 |
+| Pro | R$ 29,90 |
+
+> **Experimentação:** plano de cortesia com acesso **total** (precificação, produtos e lotes) e volume limitado (3 receitas / 15 cadastros / 3 produtos), para o usuário experimentar o fluxo completo antes de assinar.
 
 ---
 
 ## Raciocínio da Divisão
 
-**Gratuito → Basic**
-O usuário gratuito consegue ver o custo dos ingredientes de qualquer receita — suficiente para entender o valor do produto e perceber o limite de 3 receitas rapidamente. O bloqueio do preço sugerido, custos invisíveis e custo de produção cria pressão de conversão para quem quer precificar corretamente e enxergar o custo real do que produz.
+**Gratuito → Básico**
+O plano gratuito é uma **calculadora de custo**: cadastra ingredientes, insumos e receitas e vê o custo dos ingredientes de cada preparo — suficiente para entender o valor e sentir o limite de 3 receitas. A conversão vem de dois ganhos: o **custo real** (custos invisíveis: gás, energia, mão de obra) e, principalmente, a camada de **Produtos** — montar o que de fato se vende (receitas + insumos) e descobrir o **preço sugerido**. Sem isso, o usuário sabe o custo do preparo, mas não quanto cobrar.
 
-**Basic → Plus**
-O Basic cobre o fluxo completo de custo e precificação: o confeiteiro sabe exatamente quanto custa produzir e qual preço cobrar. O Plus desbloqueia o fluxo operacional: registrar produções com snapshot imutável dos custos no momento do lote, consultar o histórico e acompanhar o custo produzido no dia e no mês — essencial para quem quer controlar volume, rastrear gastos reais e tomar decisões com base em dados históricos.
+**Básico → Pro**
+O Básico fecha o ciclo de **custo e precificação**: o confeiteiro sabe quanto custa produzir e por quanto vender. O Pro abre a **operação**: registrar cada **lote** produzido com snapshot imutável dos custos no momento, consultar o histórico e acompanhar o que foi produzido no dia e no mês — essencial para quem controla volume, rastreia gastos reais e decide com base em dados históricos.

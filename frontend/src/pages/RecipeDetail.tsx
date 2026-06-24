@@ -1,28 +1,16 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { AppHeader } from '../components/AppHeader'
-import { Modal } from '../components/Modal'
-import { FormField } from '../components/ui/FormField'
-import { NumericInput } from '../components/ui/NumericInput'
-import { ProfitMultiplierField } from '../components/ui/ProfitMultiplierField'
-import { InvisibleCostField } from '../components/ui/InvisibleCostField'
-import { TypeBadge } from '../components/ui/TypeBadge'
-import { ConfirmModal } from '../components/ui/ConfirmModal'
+import { Tooltip } from '../components/ui/Tooltip'
 import { AsyncState } from '../components/ui/AsyncState'
-import { IngredientAutocomplete } from '../components/IngredientAutocomplete'
-import { ProduceModal } from '../components/ProduceModal'
+import { RecipeForm } from '../components/RecipeForm'
 import { triggerPlanUpgrade } from '../lib/api'
 import { getUser } from '../lib/auth'
 import { RecipeService } from '../services/RecipeService'
 import type { Recipe, RecipeIngredient } from '../services/RecipeService'
-import { IngredientService } from '../services/IngredientService'
-import type { Ingredient } from '../services/IngredientService'
+import { ProductService } from '../services/ProductService'
 import { useAppStore } from '../store/useAppStore'
-import { useModal } from '../hooks/useModal'
-import { useConfirmAction } from '../hooks/useConfirmAction'
-import { handleApiError } from '../utils/apiError'
 import { fmtCurrency, fmtQuantity } from '../utils/formatters'
-import { parseDecimal } from '../utils/inputs'
 
 export function RecipeDetail() {
   const { id } = useParams<{ id: string }>()
@@ -32,144 +20,58 @@ export function RecipeDetail() {
   const [recipe, setRecipe] = useState<Recipe | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
-
-  const editModal = useModal({ visible: false, loading: false, errors: {} as Record<string, string[]> })
-  const [editForm, setEditForm] = useState({ name: '', description: '', yield: '', yield_unit: '', invisible_cost_pct: '', profit_multiplier: 3 })
-
-  const addModal = useModal({ visible: false, loading: false, errors: {} as Record<string, string[]>, available: [] as Ingredient[] })
-  const [addForm, setAddForm] = useState({ ingredient_id: '', quantity: '' })
-
-  const editQtyModal = useModal({ visible: false, loading: false, errors: {} as Record<string, string[]>, ingredient: null as RecipeIngredient | null })
-  const [editQtyForm, setEditQtyForm] = useState({ quantity: '' })
-
-
-  const removeIngredient = useConfirmAction<RecipeIngredient>({
-    onConfirm: async (item) => {
-      const updated = await RecipeService.update(id!, { ingredients: buildIngredientsPayload({ removeId: item.id }) })
-      setRecipe(updated)
-      success('Ingrediente removido.')
-    },
-    onError: error,
-  })
+  const [editing, setEditing] = useState(false)
 
   async function fetchRecipe() {
     setLoading(true); setLoadError(null)
     try { setRecipe(await RecipeService.getById(id!)) }
-    catch (err) { setLoadError((err as any)?.message ?? 'Erro ao carregar receita. Tente novamente.') }
+    catch (err) { setLoadError((err as { message?: string })?.message ?? 'Erro ao carregar receita. Tente novamente.') }
     finally { setLoading(false) }
   }
 
   useEffect(() => { fetchRecipe() }, [id])
 
-  function buildIngredientsPayload(opts: { add?: { ingredient_id: string; quantity: number }; removeId?: string } = {}): { ingredient_id: string; quantity: number }[] {
-    if (!recipe?.ingredients) return []
-    const base = (recipe.ingredients as RecipeIngredient[])
-      .filter(i => i.id !== opts.removeId)
-      .map(i => ({ ingredient_id: i.id, quantity: parseFloat(String(i.quantity)) }))
-    return opts.add ? [...base, opts.add] : base
-  }
+  const hasProducts = !!getUser()?.plan.has_products
 
-  function openEdit() {
+  async function handleTransform() {
     if (!recipe) return
-    setEditForm({
-      name: recipe.name, description: String(recipe.description ?? ''),
-      yield: String(recipe.yield), yield_unit: recipe.yield_unit,
-      invisible_cost_pct: String(recipe.invisible_cost_pct ?? 25),
-      profit_multiplier: Number(recipe.profit_multiplier ?? 3),
-    })
-    editModal.open()
-  }
-
-  async function saveRecipe() {
-    editModal.startSubmit()
+    if (!hasProducts) { triggerPlanUpgrade('O cadastro de produtos está disponível nos planos pagos.'); return }
     try {
-      const updated = await RecipeService.update(id!, {
-        name: editForm.name.trim(),
-        description: editForm.description.trim() || undefined,
-        yield: parseDecimal(editForm.yield),
-        yield_unit: editForm.yield_unit.trim(),
-        invisible_cost_pct: parseDecimal(String(editForm.invisible_cost_pct)),
-        profit_multiplier: parseDecimal(String(editForm.profit_multiplier)),
-      })
-      setRecipe(updated)
-      success('Receita atualizada com sucesso.')
-      editModal.close()
-    } catch (err) {
-      handleApiError(err, editModal.setErrors, error, 'Erro ao salvar receita.')
-    } finally {
-      editModal.setLoading(false)
+      const product = await ProductService.fromRecipe(recipe.id)
+      success(`Produto "${product.name}" pronto.`)
+      navigate(`/produtos/${product.id}`)
+    } catch {
+      error('Erro ao transformar receita em produto.')
     }
   }
 
-  async function openAddIngredient() {
-    let allIngredients: Ingredient[]
-    try { allIngredients = await IngredientService.getAll() }
-    catch { error('Erro ao carregar ingredientes.'); return }
+  const ingredients = (recipe?.ingredients ?? []) as RecipeIngredient[]
+  const unpricedCount = ingredients.filter(i => Number(i.last_price) === 0).length
 
-    const currentIds = new Set((recipe?.ingredients as RecipeIngredient[] ?? []).map(i => i.id))
-    const available = allIngredients.filter(i => !currentIds.has(i.id))
-
-    if (!available.length) { error('Todos os ingredientes já foram adicionados a esta receita.'); return }
-
-    addModal.open({ available })
-    setAddForm({ ingredient_id: '', quantity: '' })
+  // ---- Modo edição (inline) ----
+  if (editing && recipe) {
+    return (
+      <div className="app-layout">
+        <AppHeader />
+        <main className="app-main">
+          <div className="container container-narrow">
+            <button type="button" className="back-link" onClick={() => setEditing(false)}>← Voltar para a receita</button>
+            <h1 className="page-title">Editar Receita</h1>
+            <RecipeForm
+              initial={recipe}
+              onSubmit={async (payload) => {
+                const updated = await RecipeService.update(id!, payload)
+                setRecipe(updated)
+                success('Receita atualizada com sucesso.')
+                setEditing(false)
+              }}
+              onCancel={() => setEditing(false)}
+            />
+          </div>
+        </main>
+      </div>
+    )
   }
-
-  async function addIngredient() {
-    if (!addForm.ingredient_id) { addModal.setErrors({ ingredient_id: ['Selecione um ingrediente.'] }); return }
-    if (!addForm.quantity || parseDecimal(addForm.quantity) <= 0) { addModal.setErrors({ quantity: ['A quantidade deve ser maior que zero.'] }); return }
-
-    addModal.startSubmit()
-    try {
-      const updated = await RecipeService.update(id!, { ingredients: buildIngredientsPayload({ add: { ingredient_id: addForm.ingredient_id, quantity: parseDecimal(addForm.quantity) } }) })
-      setRecipe(updated)
-      success('Ingrediente adicionado.')
-      addModal.close()
-    } catch (err) {
-      handleApiError(err, addModal.setErrors, error, 'Erro ao adicionar ingrediente.')
-    } finally {
-      addModal.setLoading(false)
-    }
-  }
-
-  function openEditQty(ingredient: RecipeIngredient) {
-    editQtyModal.open({ ingredient })
-    setEditQtyForm({ quantity: fmtQuantity(ingredient.quantity) })
-  }
-
-  async function saveIngredientQty() {
-    if (!editQtyModal.state.ingredient) return
-    editQtyModal.startSubmit()
-    try {
-      const targetId = editQtyModal.state.ingredient.id
-      const newQty = parseDecimal(editQtyForm.quantity)
-      const ingredients = (recipe?.ingredients as RecipeIngredient[] ?? []).map(i => ({
-        ingredient_id: i.id,
-        quantity: i.id === targetId ? newQty : parseFloat(String(i.quantity)),
-      }))
-      const updated = await RecipeService.update(id!, { ingredients })
-      setRecipe(updated)
-      success('Quantidade atualizada.')
-      editQtyModal.close()
-    } catch (err) {
-      handleApiError(err, editQtyModal.setErrors, error, 'Erro ao atualizar quantidade.')
-    } finally {
-      editQtyModal.setLoading(false)
-    }
-  }
-
-  const hasPricing = !!getUser()?.plan.has_pricing
-  const hasProd = !!getUser()?.plan.has_production
-
-  const [produceOpen, setProduceOpen] = useState(false)
-
-  const EyeIcon = () => (
-    <svg className="locked-eye" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-      <circle cx="12" cy="12" r="3"/>
-    </svg>
-  )
-  const ingredients = recipe?.ingredients ?? []
 
   return (
     <div className="app-layout">
@@ -178,7 +80,7 @@ export function RecipeDetail() {
         <div className="container">
           <a href="#" className="back-link" onClick={e => { e.preventDefault(); navigate('/recipes') }}>← Voltar para Receitas</a>
 
-          <AsyncState loading={loading} error={loadError} empty={false}>
+          <AsyncState loading={loading} error={loadError} onRetry={fetchRecipe} empty={false}>
             {recipe && (
               <>
                 <div className="recipe-detail-header">
@@ -188,25 +90,35 @@ export function RecipeDetail() {
                     <p className="recipe-meta">Rendimento: {fmtQuantity(recipe.yield)} {recipe.yield_unit}</p>
                   </div>
                   <div className="recipe-header-actions">
-                    <button className="btn btn-primary" onClick={() => hasProd ? setProduceOpen(true) : triggerPlanUpgrade('O registro de produções está disponível nos planos pagos.')}>{hasProd ? 'Produzir' : '🔒 Produzir'}</button>
-                    <button className="btn btn-secondary" onClick={openEdit}>Editar</button>
+                    <button className="btn btn-primary" onClick={handleTransform}>{hasProducts ? 'Transformar em produto' : '🔒 Transformar em produto'}</button>
+                    <button className="btn btn-secondary" onClick={() => setEditing(true)}>Editar</button>
                   </div>
                 </div>
+
+                <div className="info-note">
+                  💡 Receitas mostram o <strong>custo de produção</strong>. Para definir o <strong>preço de venda</strong>, transforme em produto.
+                </div>
+
+                {unpricedCount > 0 && (
+                  <div className="cost-warning">
+                    <span>⚠️</span>
+                    <span>{unpricedCount === 1 ? '1 ingrediente está' : `${unpricedCount} ingredientes estão`} sem preço cadastrado — o custo abaixo está incompleto. Cadastre o preço em <strong>Ingredientes</strong>.</span>
+                  </div>
+                )}
 
                 <div className="cost-summary">
                   <div className="cost-item">
                     <label>Ingredientes</label>
                     <strong>R$ {fmtCurrency(recipe.ingredients_cost)}</strong>
                   </div>
-                  <div className="cost-item">
-                    <label>Embalagem</label>
-                    <strong>R$ {fmtCurrency(recipe.packaging_cost)}</strong>
-                  </div>
                   {recipe.production_cost != null ? (
                     <>
                       {Number(recipe.invisible_cost_pct) > 0 && (
                         <div className="cost-item">
-                          <label>Custos Invisíveis ({String(recipe.invisible_cost_pct)}%)</label>
+                          <div className="cost-item-label-row">
+                            <label>Custos Invisíveis ({String(recipe.invisible_cost_pct)}%)</label>
+                            <Tooltip content="Gastos indiretos que não aparecem nos ingredientes: gás, energia, água e mão de obra. Exemplo: com 15%, um custo base de R$ 20,00 adiciona R$ 3,00 ao custo de produção." />
+                          </div>
                           <strong>R$ {fmtCurrency(recipe.invisible_cost as number)}</strong>
                         </div>
                       )}
@@ -218,78 +130,40 @@ export function RecipeDetail() {
                         <label>Custo por {recipe.yield_unit}</label>
                         <strong>R$ {fmtCurrency(recipe.cost_per_yield as number)}</strong>
                       </div>
-                      {Number(recipe.profit_multiplier) > 1 && (
-                        <div style={{ flexBasis: '100%' }}>
-                          <div className="cost-item cost-item-highlight">
-                            <label>Preço Sugerido / {recipe.yield_unit} ({String(recipe.profit_multiplier)}x · margem {String(recipe.profit_margin_pct)}%)</label>
-                            <strong>R$ {fmtCurrency(recipe.suggested_price_per_yield as number)}</strong>
-                          </div>
-                        </div>
-                      )}
                     </>
                   ) : (
-                    <>
-                      <div className="cost-item cost-item-locked" onClick={() => triggerPlanUpgrade()}>
-                        <label>Custos Invisíveis</label>
-                        <div className="locked-value-row">
-                          <strong className="locked-value">R$ 99,99</strong>
-                          <EyeIcon />
+                    <div style={{ flexBasis: '100%' }}>
+                      <div className="cost-locked" onClick={() => triggerPlanUpgrade()}>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                          <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                        </svg>
+                        <div className="cost-locked-text">
+                          <strong>Custo de produção e custo por porção</strong>
+                          <span>Disponível nos planos pagos — veja o custo real, com custos invisíveis.</span>
                         </div>
+                        <button className="btn btn-primary btn-sm">Fazer upgrade</button>
                       </div>
-                      <div className="cost-item cost-item-locked" onClick={() => triggerPlanUpgrade()}>
-                        <label>Custo de Produção</label>
-                        <div className="locked-value-row">
-                          <strong className="locked-value">R$ 99,99</strong>
-                          <EyeIcon />
-                        </div>
-                      </div>
-                      <div className="cost-item cost-item-locked" onClick={() => triggerPlanUpgrade()}>
-                        <label>Custo por {recipe.yield_unit}</label>
-                        <div className="locked-value-row">
-                          <strong className="locked-value">R$ 9,99</strong>
-                          <EyeIcon />
-                        </div>
-                      </div>
-                      <div style={{ flexBasis: '100%' }}>
-                        <div className="cost-item cost-item-highlight cost-item-locked" onClick={() => triggerPlanUpgrade()}>
-                          <label>Preço Sugerido / {recipe.yield_unit}</label>
-                          <div className="locked-value-row" style={{ justifyContent: 'center' }}>
-                            <strong className="locked-value">R$ 9,99</strong>
-                            <EyeIcon />
-                          </div>
-                        </div>
-                      </div>
-                    </>
+                    </div>
                   )}
                 </div>
 
-                <div className="page-header">
-                  <p className="section-title" style={{ marginBottom: 0 }}>Ingredientes</p>
-                  <button className="btn btn-primary btn-sm" onClick={openAddIngredient}>+ Adicionar</button>
-                </div>
-
+                <p className="section-title">Ingredientes</p>
                 <div className="table-wrapper">
                   {ingredients.length === 0 ? (
                     <p className="empty-state">Nenhum ingrediente nesta receita.</p>
                   ) : (
                     <table>
                       <thead>
-                        <tr><th>Ingrediente</th><th>Tipo</th><th>Unidade</th><th>Quantidade</th><th>Subtotal</th><th></th></tr>
+                        <tr><th>Ingrediente</th><th>Unidade</th><th>Quantidade</th><th>Subtotal</th></tr>
                       </thead>
                       <tbody>
                         {ingredients.map(i => (
                           <tr key={i.id}>
                             <td>{i.name}</td>
-                            <td><TypeBadge type={i.type} /></td>
                             <td>{i.unit}</td>
                             <td>{fmtQuantity(i.quantity)}</td>
-                            <td>R$ {fmtCurrency(i.subtotal)}</td>
-                            <td>
-                              <div className="td-actions">
-                                <button className="btn btn-secondary btn-sm" onClick={() => openEditQty(i)}>Editar</button>
-                                <button className="btn btn-danger btn-sm" onClick={() => removeIngredient.open(i)}>Remover</button>
-                              </div>
-                            </td>
+                            <td>{Number(i.last_price) === 0 ? <span className="tag-no-price">Sem preço</span> : `R$ ${fmtCurrency(i.subtotal)}`}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -301,69 +175,6 @@ export function RecipeDetail() {
           </AsyncState>
         </div>
       </main>
-
-      <Modal visible={editModal.state.visible} title="Editar Receita" loading={editModal.state.loading} onClose={editModal.close} onSubmit={saveRecipe}>
-        <FormField label="Nome" error={editModal.state.errors.name?.[0]}>
-          <input type="text" value={editForm.name} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} />
-        </FormField>
-        <div className="form-group">
-          <label>Descrição (opcional)</label>
-          <textarea rows={3} value={editForm.description} onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))} />
-        </div>
-        <FormField label="Rendimento" error={editModal.state.errors.yield?.[0]}>
-          <NumericInput value={editForm.yield} onChange={v => setEditForm(f => ({ ...f, yield: v }))} />
-        </FormField>
-        <FormField label="Unidade" error={editModal.state.errors.yield_unit?.[0]}>
-          <input type="text" value={editForm.yield_unit} onChange={e => setEditForm(f => ({ ...f, yield_unit: e.target.value }))} />
-        </FormField>
-        <InvisibleCostField
-          value={editForm.invisible_cost_pct}
-          onChange={v => setEditForm(f => ({ ...f, invisible_cost_pct: v }))}
-          error={editModal.state.errors.invisible_cost_pct?.[0]}
-          locked={!hasPricing}
-          onLockedClick={() => triggerPlanUpgrade('A precificação avançada está disponível nos planos pagos.')}
-        />
-        <ProfitMultiplierField
-          value={editForm.profit_multiplier}
-          onChange={v => setEditForm(f => ({ ...f, profit_multiplier: v }))}
-          error={editModal.state.errors.profit_multiplier?.[0]}
-          locked={!hasPricing}
-          onLockedClick={() => triggerPlanUpgrade('A precificação avançada está disponível nos planos pagos.')}
-        />
-      </Modal>
-
-      <Modal visible={addModal.state.visible} title="Adicionar Ingrediente" loading={addModal.state.loading} onClose={addModal.close} onSubmit={addIngredient}>
-        <FormField label="Ingrediente" error={addModal.state.errors.ingredient_id?.[0]}>
-          <IngredientAutocomplete value={addForm.ingredient_id} options={addModal.state.available} onChange={id => setAddForm(f => ({ ...f, ingredient_id: id }))} />
-        </FormField>
-        <FormField label="Quantidade" error={addModal.state.errors.quantity?.[0]}>
-          <NumericInput value={addForm.quantity} placeholder="0.000" onChange={v => setAddForm(f => ({ ...f, quantity: v }))} />
-        </FormField>
-      </Modal>
-
-      <Modal visible={editQtyModal.state.visible} title="Editar Quantidade" loading={editQtyModal.state.loading} submitText="Salvar" onClose={editQtyModal.close} onSubmit={saveIngredientQty}>
-        <p className="step-hint">{editQtyModal.state.ingredient?.name} ({editQtyModal.state.ingredient?.unit})</p>
-        <FormField label="Quantidade" error={editQtyModal.state.errors['ingredients.0.quantity']?.[0]}>
-          <NumericInput value={editQtyForm.quantity} onChange={v => setEditQtyForm({ quantity: v })} />
-        </FormField>
-      </Modal>
-
-      <ConfirmModal
-        visible={removeIngredient.confirm.visible}
-        title="Remover Ingrediente"
-        message={<>Remover <strong>{removeIngredient.confirm.item?.name}</strong> desta receita?</>}
-        loading={removeIngredient.confirm.loading}
-        confirmText="Remover"
-        onConfirm={removeIngredient.execute}
-        onClose={removeIngredient.close}
-      />
-
-      <ProduceModal
-        recipe={produceOpen ? recipe : null}
-        onClose={() => setProduceOpen(false)}
-        onSuccess={() => setProduceOpen(false)}
-      />
-
     </div>
   )
 }

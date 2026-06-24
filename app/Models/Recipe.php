@@ -41,7 +41,7 @@ class Recipe extends Model
     {
         return $this->belongsToMany(Ingredient::class, 'recipe_ingredients')
             ->using(RecipeIngredient::class)
-            ->withPivot('id', 'quantity')
+            ->withPivot('id', 'quantity', 'unit')
             ->withTimestamps();
     }
 }

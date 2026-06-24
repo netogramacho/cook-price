@@ -21,17 +21,26 @@ class ExpireSubscriptions extends Command
             ->with('user')
             ->get();
 
+        $downgraded = 0;
+
         foreach ($expired as $subscription) {
+            $user = $subscription->user;
+
+            // Não rebaixar quem já trocou de plano (ex.: pagou durante o período).
+            if (!$user || $user->plan_id !== $subscription->plan_id) {
+                continue;
+            }
+
             $subscription->update([
                 'mp_status' => 'cancelled',
                 'ends_at'   => now(),
             ]);
 
-            $user           = $subscription->user;
-            $user->plan_id  = $freePlan->id;
+            $user->plan_id = $freePlan->id;
             $user->save();
+            $downgraded++;
         }
 
-        $this->info("Expiradas: {$expired->count()} assinatura(s).");
+        $this->info("Rebaixadas para Free: {$downgraded} de {$expired->count()} assinatura(s) vencida(s).");
     }
 }

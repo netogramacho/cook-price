@@ -3,13 +3,15 @@ const USER_KEY = 'user'
 
 export interface UserPlan {
   id: string
-  name: 'free' | 'basic' | 'pro'
+  name: 'free' | 'basic' | 'pro' | 'trial'
   label: string
   price: string
   max_recipes: number | null
+  max_products: number | null
   max_ingredients: number | null
   has_pricing: boolean
   has_production: boolean
+  has_products: boolean
 }
 
 export interface AuthUser {

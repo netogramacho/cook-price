@@ -3,16 +3,16 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\Production\StoreProductionRequest;
+use App\Models\Product;
 use App\Models\Production;
-use App\Models\Recipe;
-use App\Services\RecipeCostService;
+use App\Services\ProductCostService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class ProductionController extends Controller
 {
     public function __construct(
-        private RecipeCostService $cost_service,
+        private ProductCostService $cost_service,
     ) {}
 
     public function summary(Request $request): JsonResponse
@@ -22,11 +22,13 @@ class ProductionController extends Controller
         $month_start = now()->startOfMonth()->toDateString();
 
         $today_row = Production::where('user_id', $user_id)
+            ->where('status', 'completed')
             ->whereDate('produced_at', $today)
             ->selectRaw('COUNT(*) as batches, COALESCE(SUM(total_yield), 0) as items, COALESCE(SUM(total_cost), 0) as cost')
             ->first();
 
         $month_row = Production::where('user_id', $user_id)
+            ->where('status', 'completed')
             ->where('produced_at', '>=', $month_start)
             ->selectRaw('COUNT(*) as batches, COALESCE(SUM(total_yield), 0) as items, COALESCE(SUM(total_cost), 0) as cost')
             ->first();
@@ -66,41 +68,52 @@ class ProductionController extends Controller
 
     public function store(StoreProductionRequest $request): JsonResponse
     {
-        $recipe = Recipe::where('id', $request->recipe_id)
+        $product = Product::where('id', $request->product_id)
             ->where('user_id', $request->user()->id)
-            ->with('ingredients')
+            ->with(['recipes', 'insumos'])
             ->first();
 
-        if (!$recipe) {
+        if (!$product) {
             return response()->json([
                 'success'    => false,
-                'message'    => 'Receita não encontrada.',
-                'error_code' => 'RECIPE_NOT_FOUND',
+                'message'    => 'Produto não encontrado.',
+                'error_code' => 'PRODUCT_NOT_FOUND',
             ], 404);
         }
 
-        $costs       = $this->cost_service->calculate($recipe);
-        $total_yield = round((float) $recipe->yield, 3);
+        $costs       = $this->cost_service->calculate($product);
+        $total_yield = round((float) $product->yield, 3);
         $total_cost  = round($costs['production_cost'], 2);
         $unit_cost   = $total_yield > 0 ? round($total_cost / $total_yield, 4) : 0;
 
         $snapshot = [
-            'recipe_name'               => $recipe->name,
-            'recipe_updated_at'         => $recipe->updated_at->toISOString(),
-            'yield'                     => (float) $recipe->yield,
-            'yield_unit'                => $recipe->yield_unit,
+            'product_name'              => $product->name,
+            'product_updated_at'        => $product->updated_at->toISOString(),
+            'yield'                     => (float) $product->yield,
+            'yield_unit'                => $product->yield_unit,
             'invisible_cost_pct'        => $costs['invisible_cost_pct'],
             'profit_multiplier'         => $costs['profit_multiplier'],
-            'ingredients'               => $costs['ingredients']->map(fn ($i) => [
-                'name'       => $i['name'],
-                'type'       => $i['type'],
-                'unit'       => $i['unit'],
-                'quantity'   => $i['quantity'],
-                'unit_price' => $i['price_per_unit'],
-                'subtotal'   => $i['subtotal'],
+            'recipes'                   => $costs['recipes']->map(fn ($r) => [
+                'name'           => $r['name'],
+                'cost_per_yield' => $r['cost_per_yield'],
+                'quantity'       => $r['quantity'],
+                'subtotal'       => $r['subtotal'],
             ])->values()->toArray(),
+            'ingredients'               => $costs['ingredients']->map(fn ($i) => [
+                'name'     => $i['name'],
+                'unit'     => $i['unit'],
+                'quantity' => $i['quantity'],
+                'subtotal' => $i['subtotal'],
+            ])->values()->toArray(),
+            'insumos'                   => $costs['insumos']->map(fn ($i) => [
+                'name'     => $i['name'],
+                'unit'     => $i['unit'],
+                'quantity' => $i['quantity'],
+                'subtotal' => $i['subtotal'],
+            ])->values()->toArray(),
+            'recipes_cost'              => $costs['recipes_cost'],
             'ingredients_cost'          => $costs['ingredients_cost'],
-            'packaging_cost'            => $costs['packaging_cost'],
+            'insumos_cost'              => $costs['insumos_cost'],
             'invisible_cost'            => $costs['invisible_cost'],
             'production_cost'           => $costs['production_cost'],
             'suggested_price_per_yield' => $costs['suggested_price_per_yield'],
@@ -108,8 +121,8 @@ class ProductionController extends Controller
 
         $production = Production::create([
             'user_id'          => $request->user()->id,
-            'recipe_id'        => $recipe->id,
-            'quantity_recipes'  => 1,
+            'product_id'       => $product->id,
+            'quantity_recipes' => 1,
             'total_yield'      => $total_yield,
             'total_cost'       => $total_cost,
             'unit_cost'        => $unit_cost,
@@ -125,16 +138,24 @@ class ProductionController extends Controller
         ], 201);
     }
 
-    public function destroy(Request $request, Production $production): JsonResponse
+    public function cancel(Request $request, Production $production): JsonResponse
     {
         if ($guard = $this->authorizeProduction($request, $production)) return $guard;
 
-        $production->delete();
+        if ($production->status === 'cancelled') {
+            return response()->json([
+                'success'    => false,
+                'message'    => 'Esta produção já está cancelada.',
+                'error_code' => 'PRODUCTION_ALREADY_CANCELLED',
+            ], 422);
+        }
+
+        $production->update(['status' => 'cancelled']);
 
         return response()->json([
             'success' => true,
-            'data'    => null,
-            'message' => 'Produção excluída com sucesso.',
+            'data'    => $production,
+            'message' => 'Produção cancelada com sucesso.',
         ]);
     }
 

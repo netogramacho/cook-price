@@ -5,7 +5,10 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\PlanController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\IngredientController;
+use App\Http\Controllers\InsumoController;
+use App\Http\Controllers\OnboardingController;
 use App\Http\Controllers\PasswordResetController;
+use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProductionController;
 use App\Http\Controllers\RecipeController;
 use App\Http\Controllers\SubscriptionController;
@@ -38,19 +41,28 @@ Route::prefix('auth')->group(function () {
 Route::middleware(['auth:sanctum', EnsureEmailIsVerified::class])->group(function () {
     Route::get('dashboard',     [DashboardController::class, 'index']);
 
+    Route::get('onboarding',          [OnboardingController::class, 'show']);
+    Route::post('onboarding/dismiss', [OnboardingController::class, 'dismiss']);
+
     Route::get('user',          [UserController::class, 'show']);
     Route::put('user/password', [UserController::class, 'changePassword']);
     Route::put('user/settings', [UserController::class, 'updateSettings']);
 
     Route::apiResource('ingredients', IngredientController::class);
+    Route::apiResource('insumos', InsumoController::class)->except('show');
     Route::post('recipes/{recipe}/duplicate', [RecipeController::class, 'duplicate']);
     Route::apiResource('recipes', RecipeController::class);
+
+    Route::middleware('plan.feature:has_products')->group(function () {
+        Route::post('recipes/{recipe}/to-product', [ProductController::class, 'fromRecipe']);
+        Route::apiResource('products', ProductController::class);
+    });
 
     Route::middleware('plan.feature:has_production')->group(function () {
         Route::get('productions/summary',         [ProductionController::class, 'summary']);
         Route::get('productions',                 [ProductionController::class, 'index']);
         Route::post('productions',                [ProductionController::class, 'store']);
-        Route::delete('productions/{production}', [ProductionController::class, 'destroy']);
+        Route::patch('productions/{production}/cancel', [ProductionController::class, 'cancel']);
     });
 
     Route::get('subscriptions/current', [SubscriptionController::class, 'current']);

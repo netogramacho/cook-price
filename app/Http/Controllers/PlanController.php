@@ -9,7 +9,7 @@ class PlanController extends Controller
 {
     public function index(): JsonResponse
     {
-        $plans = Plan::orderBy('price')->get();
+        $plans = Plan::where('name', '!=', 'trial')->orderBy('price')->get();
 
         return response()->json([
             'success' => true,

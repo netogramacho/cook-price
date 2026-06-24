@@ -3,7 +3,7 @@ import { api } from '../lib/api'
 export interface Ingredient {
   id: string
   name: string
-  type: 'ingredient' | 'packaging'
+  type: 'ingredient'
   unit: string
   package_size: number
   last_price: number

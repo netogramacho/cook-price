@@ -4,31 +4,70 @@ import { AppHeader } from '../components/AppHeader'
 import { AsyncState } from '../components/ui/AsyncState'
 import { DashboardService } from '../services/DashboardService'
 import type { DashboardData } from '../services/DashboardService'
+import { OnboardingService } from '../services/OnboardingService'
+import type { OnboardingState } from '../services/OnboardingService'
 import { getUser } from '../lib/auth'
 import { triggerPlanUpgrade } from '../lib/api'
+
+type StepFeature = 'has_production' | 'has_products' | null
+
+interface OnboardingStepDef {
+  key: 'created_ingredient' | 'created_insumo' | 'created_recipe' | 'created_product' | 'registered_production'
+  label: string
+  route: string
+  requiresFeature: StepFeature
+  badge?: string
+  lockedMsg?: string
+}
+
+const ONBOARDING_STEPS: OnboardingStepDef[] = [
+  { key: 'created_ingredient',    label: 'Cadastre um ingrediente',   route: '/ingredients?hint=ingredient', requiresFeature: null },
+  { key: 'created_recipe',        label: 'Crie sua primeira receita',  route: '/recipes?hint=recipe',         requiresFeature: null },
+  { key: 'created_insumo',        label: 'Cadastre um insumo',        route: '/insumos?hint=insumo',         requiresFeature: null },
+  { key: 'created_product',       label: 'Cadastre um produto',       route: '/produtos?hint=product',       requiresFeature: 'has_products',  badge: 'Básico', lockedMsg: 'O cadastro de produtos está disponível nos planos pagos.' },
+  { key: 'registered_production', label: 'Registre uma produção',      route: '/produtos?hint=production',     requiresFeature: 'has_production', badge: 'Pro',    lockedMsg: 'O histórico de produções está disponível nos planos pagos.' },
+]
 
 export function Dashboard() {
   const navigate = useNavigate()
   const [stats, setStats] = useState<DashboardData | null>(null)
+  const [onboarding, setOnboarding] = useState<OnboardingState | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(false)
 
-  const hasProd = !!getUser()?.plan.has_production
+  const user = getUser()
+  const hasProd = !!user?.plan.has_production
+  const hasProducts = !!user?.plan.has_products
+
+  function hasFeature(feature: StepFeature): boolean {
+    if (!feature) return true
+    return !!(user?.plan as Record<string, boolean | string | null> | undefined)?.[feature]
+  }
 
   useEffect(() => {
-    DashboardService.get()
-      .then(data => setStats(data))
+    Promise.all([DashboardService.get(), OnboardingService.get()])
+      .then(([dashboard, onboardingState]) => {
+        setStats(dashboard)
+        setOnboarding(onboardingState)
+      })
       .catch(() => setLoadError(true))
       .finally(() => setLoading(false))
   }, [])
 
-  const step1Done = !!stats && stats.ingredients_count > 0
-  const step2Done = !!stats && stats.recipes_count > 0
-  const step3Done = !!stats && (stats.productions_count ?? 0) > 0
+  function dismissOnboarding() {
+    setOnboarding(prev => (prev ? { ...prev, dismissed: true } : prev))
+    OnboardingService.dismiss().catch(() => {})
+  }
 
-  const allDone = stats
-    ? step1Done && step2Done && (!hasProd || step3Done)
-    : true
+  // Passos disponíveis para o plano do usuário (os bloqueados não contam p/ visibilidade)
+  const availableSteps = ONBOARDING_STEPS.filter(s => hasFeature(s.requiresFeature))
+  const hasAvailableIncomplete = !!onboarding && availableSteps.some(s => !onboarding[s.key])
+  const showOnboarding = !!onboarding && !onboarding.dismissed && hasAvailableIncomplete
+
+  // Índice do primeiro passo disponível ainda não concluído — passos seguintes ficam "waiting"
+  const firstIncompleteIdx = onboarding
+    ? availableSteps.findIndex(s => !onboarding[s.key])
+    : -1
 
   return (
     <div className="app-layout">
@@ -41,14 +80,26 @@ export function Dashboard() {
               <p className="stat-card-value">{stats ? stats.ingredients_count : '—'}</p>
               {stats?.ingredients_count === 0 && <p className="stat-card-hint">Cadastre seu primeiro ingrediente →</p>}
             </Link>
+            <Link to="/insumos" className="stat-card stat-card-link">
+              <p className="stat-card-label">Insumos</p>
+              <p className="stat-card-value">{stats ? stats.insumos_count : '—'}</p>
+              {stats?.insumos_count === 0 && <p className="stat-card-hint">Cadastre embalagens e finalização →</p>}
+            </Link>
             <Link to="/recipes" className="stat-card stat-card-link">
               <p className="stat-card-label">Receitas</p>
               <p className="stat-card-value">{stats ? stats.recipes_count : '—'}</p>
               {stats?.recipes_count === 0 && <p className="stat-card-hint">Crie sua primeira receita →</p>}
             </Link>
+            {hasProducts && (
+              <Link to="/produtos" className="stat-card stat-card-link stat-card-feature">
+                <p className="stat-card-label">Produtos</p>
+                <p className="stat-card-value">{stats?.products_count != null ? stats.products_count : '—'}</p>
+                {stats?.products_count === 0 && <p className="stat-card-hint">Monte seu primeiro produto →</p>}
+              </Link>
+            )}
             {hasProd && (
               <Link to="/producoes" className="stat-card stat-card-link">
-                <p className="stat-card-label">Produções</p>
+                <p className="stat-card-label">Lotes</p>
                 <p className="stat-card-value">{stats?.productions_count != null ? stats.productions_count : '—'}</p>
                 {stats?.productions_count === 0 && <p className="stat-card-hint">Registre sua primeira produção →</p>}
               </Link>
@@ -56,46 +107,47 @@ export function Dashboard() {
           </div>
 
           <AsyncState loading={loading} error={loadError ? 'Erro ao carregar dashboard.' : null} empty={false}>
-            {stats && !allDone && (
+            {showOnboarding && onboarding && (
               <div className="onboarding-checklist">
                 <h3 className="onboarding-title">Primeiros passos</h3>
                 <div className="onboarding-steps">
+                  {ONBOARDING_STEPS.map(step => {
+                    const available = hasFeature(step.requiresFeature)
 
-                  <div
-                    className={`onboarding-step${step1Done ? ' onboarding-step--done' : ''}`}
-                    onClick={() => !step1Done && navigate('/ingredients?hint=ingredient')}
-                  >
-                    <span className="onboarding-step-icon">{step1Done ? '✓' : '1'}</span>
-                    <span className="onboarding-step-label">Cadastre um ingrediente</span>
-                  </div>
+                    if (!available) {
+                      return (
+                        <div
+                          key={step.key}
+                          className="onboarding-step onboarding-step--locked"
+                          onClick={() => triggerPlanUpgrade(step.lockedMsg)}
+                        >
+                          <span className="onboarding-step-icon">🔒</span>
+                          <span className="onboarding-step-label">
+                            {step.label}
+                            {step.badge && <span className="onboarding-step-badge">{step.badge}</span>}
+                          </span>
+                        </div>
+                      )
+                    }
 
-                  <div
-                    className={`onboarding-step${step2Done ? ' onboarding-step--done' : !step1Done ? ' onboarding-step--waiting' : ''}`}
-                    onClick={() => step1Done && !step2Done && navigate('/recipes?hint=recipe')}
-                  >
-                    <span className="onboarding-step-icon">{step2Done ? '✓' : '2'}</span>
-                    <span className="onboarding-step-label">Crie sua primeira receita</span>
-                  </div>
+                    const done = onboarding[step.key]
+                    const availableIdx = availableSteps.findIndex(s => s.key === step.key)
+                    const waiting = !done && firstIncompleteIdx !== -1 && availableIdx > firstIncompleteIdx
+                    const position = availableIdx + 1
 
-                  {hasProd ? (
-                    <div
-                      className={`onboarding-step${step3Done ? ' onboarding-step--done' : !step2Done ? ' onboarding-step--waiting' : ''}`}
-                      onClick={() => step2Done && !step3Done && navigate('/recipes?hint=production')}
-                    >
-                      <span className="onboarding-step-icon">{step3Done ? '✓' : '3'}</span>
-                      <span className="onboarding-step-label">Registre uma produção</span>
-                    </div>
-                  ) : (
-                    <div
-                      className="onboarding-step onboarding-step--locked"
-                      onClick={() => triggerPlanUpgrade('O módulo de produções está disponível nos planos pagos.')}
-                    >
-                      <span className="onboarding-step-icon">🔒</span>
-                      <span className="onboarding-step-label">Registre uma produção <span className="onboarding-step-badge">Basic</span></span>
-                    </div>
-                  )}
-
+                    return (
+                      <div
+                        key={step.key}
+                        className={`onboarding-step${done ? ' onboarding-step--done' : waiting ? ' onboarding-step--waiting' : ''}`}
+                        onClick={() => !done && !waiting && navigate(step.route)}
+                      >
+                        <span className="onboarding-step-icon">{done ? '✓' : position}</span>
+                        <span className="onboarding-step-label">{step.label}</span>
+                      </div>
+                    )
+                  })}
                 </div>
+                <button className="onboarding-dismiss" onClick={dismissOnboarding}>Não ver novamente</button>
               </div>
             )}
           </AsyncState>

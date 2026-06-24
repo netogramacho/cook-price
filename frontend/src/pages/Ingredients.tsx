@@ -2,39 +2,28 @@ import { useState } from 'react'
 import { AppHeader } from '../components/AppHeader'
 import { HintBanner } from '../components/ui/HintBanner'
 import { useHintBanner } from '../hooks/useHintBanner'
-import { Modal } from '../components/Modal'
-import { PageHeader } from '../components/ui/PageHeader'
 import { SearchBar } from '../components/ui/SearchBar'
 import { AsyncState } from '../components/ui/AsyncState'
 import { LoadMoreButton } from '../components/ui/LoadMoreButton'
 import { ConfirmModal } from '../components/ui/ConfirmModal'
 import { FormField } from '../components/ui/FormField'
 import { NumericInput } from '../components/ui/NumericInput'
-import { TypeSelectCards } from '../components/ui/TypeSelectCards'
-import { TypeBadge } from '../components/ui/TypeBadge'
 import { IngredientService } from '../services/IngredientService'
 import type { Ingredient } from '../services/IngredientService'
 import { useAppStore } from '../store/useAppStore'
 import { usePaginatedList } from '../hooks/usePaginatedList'
-import { useModal } from '../hooks/useModal'
 import { useConfirmAction } from '../hooks/useConfirmAction'
 import { handleApiError } from '../utils/apiError'
 import { fmtCurrency, fmtQuantity } from '../utils/formatters'
-import { parseDecimal } from '../utils/inputs'
+import { parseDecimal, capitalizeFirst } from '../utils/inputs'
+import { INGREDIENT_UNITS, unitLabel } from '../utils/units'
 
-const TYPE_OPTIONS = [
-  { value: 'ingredient', icon: '🥕', label: 'Ingrediente', description: 'Farinha, manteiga, ovos...' },
-  { value: 'packaging',  icon: '📦', label: 'Embalagem',   description: 'Caixa, saco, etiqueta...' },
-]
-
-interface ModalForm {
-  name: string; type: string; unit: string
+interface IngredientForm {
+  name: string; unit: string
   package_size: string; last_price: string
 }
 
-type ModalStep = 'type-select' | 'form'
-
-const emptyForm = (): ModalForm => ({ name: '', type: '', unit: '', package_size: '', last_price: '' })
+const emptyForm = (): IngredientForm => ({ name: '', unit: '', package_size: '', last_price: '' })
 
 export function Ingredients() {
   const hint = useHintBanner()
@@ -47,14 +36,11 @@ export function Ingredients() {
       loadMoreErrorMsg: 'Erro ao carregar mais ingredientes.',
     })
 
-  const modal = useModal({
-    visible: false,
-    step: 'type-select' as ModalStep,
-    editing: null as Ingredient | null,
-    loading: false,
-    errors: {} as Record<string, string[]>,
-  })
-  const [form, setForm] = useState<ModalForm>(emptyForm())
+  const [view, setView] = useState<'list' | 'form'>('list')
+  const [editing, setEditing] = useState<Ingredient | null>(null)
+  const [errors, setErrors] = useState<Record<string, string[]>>({})
+  const [saving, setSaving] = useState(false)
+  const [form, setForm] = useState<IngredientForm>(emptyForm())
 
   const deleteIngredient = useConfirmAction<Ingredient>({
     onConfirm: async (item) => {
@@ -67,127 +53,163 @@ export function Ingredients() {
 
   function openCreate() {
     setForm(emptyForm())
-    modal.open({ step: 'type-select', editing: null })
+    setEditing(null)
+    setErrors({})
+    setView('form')
   }
 
   function openEdit(ingredient: Ingredient) {
     setForm({
-      name: ingredient.name, type: ingredient.type, unit: ingredient.unit,
-      package_size: String(ingredient.package_size),
+      name: ingredient.name, unit: ingredient.unit,
+      package_size: fmtQuantity(ingredient.package_size),
       last_price: fmtCurrency(ingredient.last_price),
     })
-    modal.open({ step: 'form', editing: ingredient })
+    setEditing(ingredient)
+    setErrors({})
+    setView('form')
   }
 
   async function save() {
-    modal.startSubmit()
+    setSaving(true)
+    setErrors({})
     try {
       const payload = {
         ...form,
         package_size: parseDecimal(form.package_size),
         last_price: parseDecimal(form.last_price),
       }
-      if (modal.state.editing) {
-        await IngredientService.update(modal.state.editing.id, payload as unknown as Partial<Ingredient>)
+      if (editing) {
+        await IngredientService.update(editing.id, payload as unknown as Partial<Ingredient>)
         success('Ingrediente atualizado com sucesso.')
       } else {
         await IngredientService.create(payload as unknown as Partial<Ingredient>)
         success('Ingrediente criado com sucesso.')
       }
-      modal.close()
+      setView('list')
       refetch()
     } catch (err) {
-      handleApiError(err, modal.setErrors, error, 'Erro ao salvar ingrediente.')
+      handleApiError(err, setErrors, error, 'Erro ao salvar ingrediente.')
     } finally {
-      modal.setLoading(false)
+      setSaving(false)
     }
   }
 
+  const formTitle = editing ? 'Editar Ingrediente' : 'Novo Ingrediente'
+
+  // ---- View: formulário de criar/editar ----
+  if (view === 'form') {
+    return (
+      <div className="app-layout">
+        <AppHeader />
+        <main className="app-main">
+          <div className="container container-narrow">
+            <button type="button" className="back-link" onClick={() => setView('list')}>← Voltar para Ingredientes</button>
+            <h1 className="page-title">{formTitle}</h1>
+
+            <div className="form-card">
+              <FormField label="Nome do Ingrediente" error={errors.name?.[0]}>
+                <input type="text" value={form.name}
+                  placeholder="Ex: Farinha de trigo"
+                  onChange={e => setForm(f => ({ ...f, name: capitalizeFirst(e.target.value) }))} />
+              </FormField>
+
+              <div className="field-grid">
+                <FormField label="Unidade" error={errors.unit?.[0]}>
+                  <select value={form.unit} onChange={e => setForm(f => ({ ...f, unit: e.target.value }))}>
+                    <option value="" disabled>Selecionar...</option>
+                    {INGREDIENT_UNITS.map(u => <option key={u} value={u}>{unitLabel(u)}</option>)}
+                  </select>
+                </FormField>
+                <FormField label="Tamanho do Pacote" error={errors.package_size?.[0]}>
+                  <NumericInput value={form.package_size}
+                    placeholder="Ex: 500"
+                    onChange={v => setForm(f => ({ ...f, package_size: v }))} />
+                </FormField>
+              </div>
+
+              <FormField label="Preço do Pacote (R$)" error={errors.last_price?.[0]}>
+                <NumericInput value={form.last_price} placeholder="0,00" onChange={v => setForm(f => ({ ...f, last_price: v }))} />
+              </FormField>
+
+              {form.name && (
+                <div className="preview-block">
+                  <span className="preview-label">Pré-visualização</span>
+                  <div className="entity-card entity-card--preview">
+                    <span className="entity-avatar entity-avatar--ingredient">🥕</span>
+                    <div className="entity-main">
+                      <span className="entity-name">{form.name}</span>
+                      <span className="entity-meta">
+                        Ingrediente
+                        {form.package_size && ` · ${form.package_size} ${form.unit}`}
+                      </span>
+                    </div>
+                    {form.last_price && <span className="entity-value">R$ {fmtCurrency(parseDecimal(form.last_price))}</span>}
+                  </div>
+                </div>
+              )}
+
+              <div className="form-actions">
+                <button type="button" className="btn btn-secondary" disabled={saving} onClick={() => setView('list')}>Cancelar</button>
+                <button type="button" className="btn btn-primary" disabled={saving} onClick={save}>
+                  {saving ? 'Salvando...' : 'Salvar Ingrediente'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+    )
+  }
+
+  // ---- View: listagem ----
   return (
     <div className="app-layout">
       <AppHeader />
       <main className="app-main">
         <div className="container">
-          <PageHeader title="Ingredientes" actionLabel="+ Novo Ingrediente" onAction={openCreate} />
-          <SearchBar placeholder="Buscar ingrediente..." value={search} onChange={handleSearch} />
+          <div className="list-header">
+            <div className="list-header-title">
+              <h1>Ingredientes</h1>
+              {!!items.length && <span className="list-count">{items.length}</span>}
+            </div>
+            <button className="btn btn-primary" onClick={openCreate}>+ Novo Ingrediente</button>
+          </div>
+
           <HintBanner hint={hint} />
 
-          <AsyncState loading={loading} error={loadError || null}
+          <div className="list-toolbar">
+            <SearchBar placeholder="Buscar por nome..." value={search} onChange={handleSearch} />
+          </div>
+
+          <AsyncState loading={loading} error={loadError || null} onRetry={refetch}
             empty={!items.length} emptyEntityName="ingrediente" emptySearch={search}
             emptyAction={{ label: '+ Novo Ingrediente', onClick: openCreate }}>
-            <div className="table-wrapper">
-              <table className="ingredients-table">
-                <thead>
-                  <tr>
-                    <th>Nome</th><th>Tipo</th><th>Unidade</th><th>Tamanho do Pacote</th><th>Preço do Pacote</th><th></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {items.map(i => (
-                    <tr key={i.id}>
-                      <td>{i.name}</td>
-                      <td><TypeBadge type={i.type} /></td>
-                      <td>{i.unit}</td>
-                      <td>{fmtQuantity(i.package_size)} {i.unit}</td>
-                      <td>R$ {fmtCurrency(i.last_price)}</td>
-                      <td>
-                        <div className="td-actions">
-                          <button className="btn btn-secondary btn-sm" onClick={() => openEdit(i)}>Editar</button>
-                          <button className="btn btn-danger btn-sm" onClick={() => deleteIngredient.open(i)}>Excluir</button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <LoadMoreButton hasMore={hasMore} loading={loadingMore} onLoadMore={loadMore} />
+            <div className="entity-list">
+              {items.map(i => (
+                <div key={i.id} className="entity-card">
+                  <span className="entity-avatar entity-avatar--ingredient">🥕</span>
+                  <div className="entity-main">
+                    <span className="entity-name">{i.name}</span>
+                    <span className="entity-meta">{fmtQuantity(i.package_size)} {i.unit}</span>
+                  </div>
+                  {Number(i.last_price) > 0
+                    ? <span className="entity-value">R$ {fmtCurrency(i.last_price)}</span>
+                    : <span className="tag-no-price">Sem preço</span>}
+                  <div className="entity-actions">
+                    <button className="icon-btn" title="Editar" onClick={() => openEdit(i)}>✏️</button>
+                    <button className="icon-btn icon-btn--danger" title="Excluir" onClick={() => deleteIngredient.open(i)}>🗑️</button>
+                  </div>
+                </div>
+              ))}
             </div>
+            <LoadMoreButton hasMore={hasMore} loading={loadingMore} onLoadMore={loadMore} />
           </AsyncState>
         </div>
       </main>
 
-      <Modal
-        visible={modal.state.visible}
-        title={modal.state.editing ? 'Editar Ingrediente' : 'Novo Ingrediente'}
-        loading={modal.state.loading}
-        hideActions={modal.state.step === 'type-select'}
-        onClose={modal.close}
-        onSubmit={save}
-      >
-        {modal.state.step === 'type-select' ? (
-          <TypeSelectCards
-            options={TYPE_OPTIONS}
-            onSelect={type => { setForm(f => ({ ...f, type })); modal.patch({ step: 'form' }) }}
-          />
-        ) : (
-          <>
-            {!modal.state.editing && (
-              <button type="button" className="btn-back" onClick={() => modal.patch({ step: 'type-select' })}>← Voltar</button>
-            )}
-            <FormField label="Nome" error={modal.state.errors.name?.[0]}>
-              <input type="text" value={form.name} placeholder="Ex: Farinha de trigo" onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
-            </FormField>
-            <FormField label="Unidade" error={modal.state.errors.unit?.[0]}>
-              <select value={form.unit} onChange={e => setForm(f => ({ ...f, unit: e.target.value }))}>
-                <option value="" disabled>Selecionar unidade...</option>
-                <option value="g">g — Grama</option>
-                <option value="ml">ml — Mililitro</option>
-                <option value="un">un — Unidade</option>
-              </select>
-            </FormField>
-            <FormField label="Tamanho do Pacote" error={modal.state.errors.package_size?.[0]}>
-              <NumericInput value={form.package_size} placeholder="Ex: 500" onChange={v => setForm(f => ({ ...f, package_size: v }))} />
-            </FormField>
-            <FormField label="Preço do Pacote (R$)" error={modal.state.errors.last_price?.[0]}>
-              <NumericInput value={form.last_price} placeholder="0.00" onChange={v => setForm(f => ({ ...f, last_price: v }))} />
-            </FormField>
-          </>
-        )}
-      </Modal>
-
       <ConfirmModal
         visible={deleteIngredient.confirm.visible}
-        title="Excluir Ingrediente"
+        title="Excluir ingrediente"
         message={<>Excluir <strong>{deleteIngredient.confirm.item?.name}</strong>? Esta ação não pode ser desfeita.</>}
         loading={deleteIngredient.confirm.loading}
         confirmText="Excluir"
