@@ -1,5 +1,7 @@
-import { FormField } from './FormField'
 import { NumericInput } from './NumericInput'
+import { Tooltip } from './Tooltip'
+
+const TOOLTIP_TEXT = 'Gastos indiretos que não aparecem nos ingredientes: gás, energia, água e mão de obra. Exemplo: com 15%, um custo base de R$ 20,00 adiciona R$ 3,00 ao custo de produção.'
 
 interface Props {
   value: string | number
@@ -13,15 +15,23 @@ export function InvisibleCostField({ value, onChange, error, locked, onLockedCli
   if (locked) {
     return (
       <div className="form-group form-field-locked" onClick={onLockedClick}>
-        <label>Custos Invisíveis (%) <span className="onboarding-step-badge">Basic</span></label>
+        <div className="form-label-row">
+          <label>Custos Invisíveis (%) <span className="onboarding-step-badge">Basic</span></label>
+          <Tooltip content={TOOLTIP_TEXT} />
+        </div>
         <NumericInput value="" placeholder="Ex: 25" onChange={() => {}} />
       </div>
     )
   }
 
   return (
-    <FormField label="Custos Invisíveis (%)" error={error}>
+    <div className={`form-group${error ? ' has-error' : ''}`}>
+      <div className="form-label-row">
+        <label>Custos Invisíveis (%)</label>
+        <Tooltip content={TOOLTIP_TEXT} />
+      </div>
       <NumericInput value={value} placeholder="Ex: 25" onChange={onChange} />
-    </FormField>
+      <span className="field-error">{error ?? ''}</span>
+    </div>
   )
 }

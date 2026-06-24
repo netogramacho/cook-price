@@ -3,26 +3,27 @@ import { Modal } from './Modal'
 import { ProductionService } from '../services/ProductionService'
 import { useAppStore } from '../store/useAppStore'
 import { handleApiError } from '../utils/apiError'
+import { capitalizeFirst } from '../utils/inputs'
 import { fmtCurrency, fmtQuantity } from '../utils/formatters'
-import type { Recipe } from '../services/RecipeService'
+import type { Product } from '../services/ProductService'
 
 interface Props {
-  recipe: Recipe | null
+  product: Product | null
   onClose: () => void
   onSuccess: () => void
 }
 
-export function ProduceModal({ recipe, onClose, onSuccess }: Props) {
+export function ProduceModal({ product, onClose, onSuccess }: Props) {
   const { success, error } = useAppStore()
   const [notes, setNotes] = useState('')
   const [loading, setLoading] = useState(false)
   const [errors, setErrors] = useState<Record<string, string[]>>({})
 
   async function handleSubmit() {
-    if (!recipe) return
+    if (!product) return
     setLoading(true)
     try {
-      await ProductionService.create({ recipe_id: recipe.id, notes: notes || undefined })
+      await ProductionService.create({ product_id: product.id, notes: notes || undefined })
       success('Produção registrada com sucesso.')
       setNotes('')
       setErrors({})
@@ -40,40 +41,34 @@ export function ProduceModal({ recipe, onClose, onSuccess }: Props) {
     onClose()
   }
 
-  const unitCost = recipe?.cost_per_yield ?? null
-
   return (
     <Modal
-      visible={recipe !== null}
+      visible={product !== null}
       title="Registrar Produção"
       loading={loading}
       submitText="Registrar"
       onClose={handleClose}
       onSubmit={handleSubmit}
     >
-      {recipe && (
+      {product && (
         <>
           <div className="cost-summary" style={{ marginBottom: 16 }}>
             <div className="cost-item">
-              <label>Receita</label>
-              <strong>{recipe.name}</strong>
+              <label>Produto</label>
+              <strong>{product.name}</strong>
             </div>
             <div className="cost-item">
               <label>Rendimento</label>
-              <strong>{fmtQuantity(recipe.yield)} {recipe.yield_unit}</strong>
+              <strong>{fmtQuantity(product.yield)} {product.yield_unit}</strong>
             </div>
-            {recipe.production_cost != null && (
-              <div className="cost-item">
-                <label>Custo de produção</label>
-                <strong>R$ {fmtCurrency(recipe.production_cost)}</strong>
-              </div>
-            )}
-            {unitCost != null && (
-              <div className="cost-item">
-                <label>Custo por {recipe.yield_unit}</label>
-                <strong>R$ {fmtCurrency(unitCost)}</strong>
-              </div>
-            )}
+            <div className="cost-item">
+              <label>Custo de produção</label>
+              <strong>R$ {fmtCurrency(product.production_cost)}</strong>
+            </div>
+            <div className="cost-item">
+              <label>Custo por {product.yield_unit}</label>
+              <strong>R$ {fmtCurrency(product.cost_per_yield)}</strong>
+            </div>
           </div>
 
           <div className="form-group">
@@ -82,7 +77,7 @@ export function ProduceModal({ recipe, onClose, onSuccess }: Props) {
               type="text"
               value={notes}
               placeholder="Ex: Lote de natal"
-              onChange={e => setNotes(e.target.value)}
+              onChange={e => setNotes(capitalizeFirst(e.target.value))}
             />
             {errors.notes?.[0] && <span className="field-error">{errors.notes[0]}</span>}
           </div>

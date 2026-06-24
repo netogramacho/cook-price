@@ -8,6 +8,7 @@ use App\Models\Ingredient;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class IngredientController extends Controller
 {
@@ -18,6 +19,7 @@ class IngredientController extends Controller
 
         $ingredients = Ingredient::where('user_id', $request->user()->id)
             ->where('active', true)
+            ->where('type', 'ingredient')
             ->when($search, fn ($q) => $q->where('name', 'like', '%' . $search . '%'))
             ->orderBy('name')
             ->paginate($per_page);
@@ -38,7 +40,7 @@ class IngredientController extends Controller
         $ingredient = Ingredient::create([
             'user_id'      => $user->id,
             'name'         => $request->name,
-            'type'         => $request->type,
+            'type'         => \App\Enums\IngredientType::Ingredient,
             'unit'         => $request->unit,
             'package_size' => $request->package_size,
             'last_price'   => $request->last_price,
@@ -67,7 +69,7 @@ class IngredientController extends Controller
     {
         if ($denied = $this->authorizeIngredient($request, $ingredient)) return $denied;
 
-        $ingredient->update($request->only('name', 'type', 'unit', 'package_size', 'last_price', 'min_stock'));
+        $ingredient->update($request->only('name', 'unit', 'package_size', 'last_price', 'min_stock'));
 
         return response()->json([
             'success' => true,
@@ -120,14 +122,24 @@ class IngredientController extends Controller
 
     private function checkIngredientInUse(Ingredient $ingredient): ?JsonResponse
     {
-        $count = $ingredient->recipes()->where('active', true)->count();
-        if ($count === 0) return null;
+        $recipe_count = $ingredient->recipes()->where('active', true)->count();
 
-        $receitas = $count === 1 ? 'receita' : 'receitas';
+        $product_count = DB::table('product_insumos')
+            ->join('products', 'products.id', '=', 'product_insumos.product_id')
+            ->where('product_insumos.ingredient_id', $ingredient->id)
+            ->where('products.active', true)
+            ->count();
+
+        if ($recipe_count === 0 && $product_count === 0) return null;
+
+        $parts = [];
+        if ($recipe_count > 0)  $parts[] = $recipe_count . ' ' . ($recipe_count === 1 ? 'receita' : 'receitas');
+        if ($product_count > 0) $parts[] = $product_count . ' ' . ($product_count === 1 ? 'produto' : 'produtos');
+        $where = implode(' e ', $parts);
 
         return response()->json([
             'success'    => false,
-            'message'    => "Este ingrediente está sendo usado em {$count} {$receitas}. Remova-o das receitas antes de excluir.",
+            'message'    => "Este ingrediente está sendo usado em {$where}. Remova-o antes de excluir.",
             'error_code' => 'INGREDIENT_IN_USE',
         ], 409);
     }

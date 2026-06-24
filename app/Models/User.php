@@ -54,6 +54,11 @@ class User extends Authenticatable implements CanResetPasswordContract, MustVeri
         return $this->belongsTo(Plan::class);
     }
 
+    public function onboarding(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(UserOnboarding::class);
+    }
+
     public function sendEmailVerificationNotification(): void
     {
         $verifyUrl = URL::temporarySignedRoute(

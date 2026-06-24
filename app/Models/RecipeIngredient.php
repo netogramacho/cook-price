@@ -18,6 +18,7 @@ class RecipeIngredient extends Pivot
         'recipe_id',
         'ingredient_id',
         'quantity',
+        'unit',
     ];
 
     protected function casts(): array

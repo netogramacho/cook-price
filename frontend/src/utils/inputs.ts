@@ -1,3 +1,8 @@
+export function capitalizeFirst(value: string): string {
+  if (!value) return value
+  return value.charAt(0).toUpperCase() + value.slice(1)
+}
+
 export function onlyNumbers(e: React.KeyboardEvent<HTMLInputElement>): void {
   if (!/[\d,.]/.test(e.key) && !['Backspace', 'Delete', 'Tab', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
     e.preventDefault()

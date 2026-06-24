@@ -2,11 +2,14 @@
 
 namespace App\Http\Requests\Recipe;
 
+use App\Support\Unit;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 class StoreRecipeRequest extends FormRequest
 {
+    use ValidatesIngredientUnits;
+
     public function authorize(): bool
     {
         return true;
@@ -33,6 +36,7 @@ class StoreRecipeRequest extends FormRequest
                 Rule::exists('ingredients', 'id')->where('user_id', $user_id),
             ],
             'ingredients.*.quantity'        => ['required', 'numeric', 'min:0.001'],
+            'ingredients.*.unit'            => ['required', 'string', Rule::in(Unit::allowed())],
             'invisible_cost_pct'            => ['required', 'numeric', 'min:0', 'max:100'],
             'profit_multiplier'             => ['required', 'numeric', 'min:1', 'max:10'],
         ];
@@ -53,6 +57,8 @@ class StoreRecipeRequest extends FormRequest
             'ingredients.*.ingredient_id.exists'   => 'Ingrediente não encontrado.',
             'ingredients.*.quantity.required'      => 'A quantidade do ingrediente é obrigatória.',
             'ingredients.*.quantity.min'           => 'A quantidade deve ser maior que zero.',
+            'ingredients.*.unit.required'          => 'A unidade do ingrediente é obrigatória.',
+            'ingredients.*.unit.in'                => 'Unidade inválida.',
             'invisible_cost_pct.required'          => 'O percentual de custos invisíveis é obrigatório.',
             'invisible_cost_pct.max'               => 'O percentual não pode ser maior que 100.',
             'profit_multiplier.required'           => 'O multiplicador de lucro é obrigatório.',

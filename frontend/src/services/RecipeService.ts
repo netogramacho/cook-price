@@ -11,7 +11,7 @@ export interface Recipe {
   updated_at: string
   ingredients: RecipeIngredient[]
   ingredients_cost: number
-  packaging_cost: number
+  insumos_cost: number
   invisible_cost_pct: number | null
   invisible_cost: number | null
   production_cost: number | null
@@ -38,11 +38,11 @@ export interface RecipeIngredient {
 export interface IngredientInput {
   ingredient_id: string
   quantity: number
+  unit: string
 }
 
-interface RecipeInput extends Omit<Partial<Recipe>, 'ingredients' | 'packaging'> {
+interface RecipeInput extends Omit<Partial<Recipe>, 'ingredients'> {
   ingredients?: IngredientInput[]
-  packaging?: IngredientInput[]
 }
 
 interface PaginatedResult<T> {

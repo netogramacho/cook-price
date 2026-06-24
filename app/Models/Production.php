@@ -13,6 +13,7 @@ class Production extends Model
     protected $fillable = [
         'user_id',
         'recipe_id',
+        'product_id',
         'quantity_recipes',
         'total_yield',
         'total_cost',
@@ -20,6 +21,7 @@ class Production extends Model
         'notes',
         'snapshot',
         'produced_at',
+        'status',
     ];
 
     protected function casts(): array
@@ -42,5 +44,10 @@ class Production extends Model
     public function recipe(): BelongsTo
     {
         return $this->belongsTo(Recipe::class);
+    }
+
+    public function product(): BelongsTo
+    {
+        return $this->belongsTo(Product::class);
     }
 }

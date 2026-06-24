@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Ingredient;
 
 use App\Enums\IngredientType;
+use App\Support\Unit;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -22,8 +23,8 @@ class StoreIngredientRequest extends FormRequest
                 'max:100',
                 Rule::unique('ingredients')->where('user_id', $this->user()->id),
             ],
-            'type'         => ['required', Rule::enum(IngredientType::class)],
-            'unit'         => ['required', 'string', Rule::in(['g', 'ml', 'un'])],
+            'type'         => ['sometimes', Rule::enum(IngredientType::class)],
+            'unit'         => ['required', 'string', Rule::in(Unit::allowed())],
             'package_size' => ['required', 'numeric', 'min:0.001'],
             'last_price'   => ['required', 'numeric', 'min:0'],
             'min_stock'    => ['nullable', 'numeric', 'min:0'],
@@ -39,7 +40,7 @@ class StoreIngredientRequest extends FormRequest
             'type.required'          => 'O tipo é obrigatório.',
             'type.enum'              => 'Tipo inválido.',
             'unit.required'          => 'A unidade de medida é obrigatória.',
-            'unit.in'                => 'A unidade deve ser: g, ml ou un.',
+            'unit.in'                => 'A unidade deve ser: g, kg, ml, L ou un.',
             'package_size.required'  => 'O tamanho do pacote é obrigatório.',
             'package_size.numeric'   => 'O tamanho do pacote deve ser um número válido.',
             'package_size.min'       => 'O tamanho do pacote deve ser maior que zero.',

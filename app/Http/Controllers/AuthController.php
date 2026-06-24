@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\Auth\RegisterRequest;
 use App\Models\Plan;
+use App\Models\Subscription;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -14,14 +15,27 @@ class AuthController extends Controller
 {
     public function register(RegisterRequest $request): JsonResponse
     {
-        $free_plan_id = Plan::free()->id;
+        $trial_plan = Plan::trial();
+        $trial_ends_at = now()->addDays(7);
 
         $user = User::create([
             'name'     => $request->name,
             'email'    => $request->email,
             'phone'    => $request->phone,
             'password' => $request->password,
-            'plan_id'  => $free_plan_id,
+            'plan_id'  => $trial_plan->id,
+        ]);
+
+        // Período de experimentação de 7 dias: o ExpireSubscriptions rebaixa para Free ao expirar.
+        Subscription::create([
+            'user_id'              => $user->id,
+            'plan_id'              => $trial_plan->id,
+            'mp_preapproval_id'    => null,
+            'mp_status'            => 'cancelled',
+            'starts_at'            => now(),
+            'ends_at'              => $trial_ends_at,
+            'current_period_end'   => $trial_ends_at,
+            'cancel_at_period_end' => true,
         ]);
 
         $user->sendEmailVerificationNotification();

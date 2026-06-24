@@ -3,10 +3,10 @@ interface Props {
 }
 
 export function TypeBadge({ type }: Props) {
-  const isPackaging = type === 'packaging'
+  const isInsumo = type === 'insumo' || type === 'packaging'
   return (
-    <span className={isPackaging ? 'badge badge-packaging' : 'badge badge-ingredient'}>
-      {isPackaging ? 'Embalagem' : 'Ingrediente'}
+    <span className={isInsumo ? 'badge badge-packaging' : 'badge badge-ingredient'}>
+      {isInsumo ? 'Insumo' : 'Ingrediente'}
     </span>
   )
 }

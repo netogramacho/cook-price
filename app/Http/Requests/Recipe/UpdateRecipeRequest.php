@@ -2,11 +2,14 @@
 
 namespace App\Http\Requests\Recipe;
 
+use App\Support\Unit;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 class UpdateRecipeRequest extends FormRequest
 {
+    use ValidatesIngredientUnits;
+
     public function authorize(): bool
     {
         return true;
@@ -35,6 +38,7 @@ class UpdateRecipeRequest extends FormRequest
                 Rule::exists('ingredients', 'id')->where('user_id', $user_id),
             ],
             'ingredients.*.quantity'        => ['required_with:ingredients', 'numeric', 'min:0.001'],
+            'ingredients.*.unit'            => ['required_with:ingredients', 'string', Rule::in(Unit::allowed())],
             'invisible_cost_pct'            => ['sometimes', 'numeric', 'min:0', 'max:100'],
             'profit_multiplier'             => ['sometimes', 'numeric', 'min:1', 'max:10'],
         ];
@@ -49,6 +53,7 @@ class UpdateRecipeRequest extends FormRequest
             'ingredients.min'                      => 'A receita deve ter ao menos um ingrediente.',
             'ingredients.*.ingredient_id.exists'   => 'Ingrediente não encontrado.',
             'ingredients.*.quantity.min'           => 'A quantidade deve ser maior que zero.',
+            'ingredients.*.unit.in'                => 'Unidade inválida.',
             'invisible_cost_pct.max'               => 'O percentual não pode ser maior que 100.',
             'profit_multiplier.min'                => 'O multiplicador deve ser no mínimo 1.',
             'profit_multiplier.max'                => 'O multiplicador não pode ser maior que 10.',

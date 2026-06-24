@@ -6,16 +6,12 @@ import { PageHeader } from '../components/ui/PageHeader'
 import { AsyncState } from '../components/ui/AsyncState'
 import { LoadMoreButton } from '../components/ui/LoadMoreButton'
 import { ConfirmModal } from '../components/ui/ConfirmModal'
+import { ProductionCard } from '../components/ProductionCard'
 import { ProductionService } from '../services/ProductionService'
 import type { Production, ProductionSummary } from '../services/ProductionService'
 import { useAppStore } from '../store/useAppStore'
 import { useConfirmAction } from '../hooks/useConfirmAction'
 import { fmtCurrency, fmtQuantity } from '../utils/formatters'
-
-function fmtDate(dateStr: string) {
-  const [year, month, day] = String(dateStr).slice(0, 10).split('-')
-  return `${day}/${month}/${year}`
-}
 
 export function Productions() {
   const navigate = useNavigate()
@@ -33,12 +29,12 @@ export function Productions() {
   const [loadingMore, setLoadingMore] = useState(false)
   const [loadError, setLoadError] = useState(false)
 
-  const deleteProduction = useConfirmAction<Production>({
+  const cancelProduction = useConfirmAction<Production>({
     onConfirm: async (item) => {
-      await ProductionService.delete(item.id)
-      success('Produção excluída.')
-      setItems(prev => prev.filter(p => p.id !== item.id))
-      setMeta(prev => ({ ...prev, total: prev.total - 1 }))
+      const updated = await ProductionService.cancel(item.id)
+      success('Produção cancelada.')
+      setItems(prev => prev.map(p => p.id === updated.id ? updated : p))
+      ProductionService.getSummary().then(setSummary).catch(() => {})
     },
     onError: error,
   })
@@ -69,7 +65,7 @@ export function Productions() {
       <AppHeader />
       <main className="app-main">
         <div className="container">
-          <PageHeader title="Produções" />
+          <PageHeader title="Lotes" />
 
           <div className="production-summary">
             <div className="production-summary-card">
@@ -91,37 +87,13 @@ export function Productions() {
           </div>
 
           <AsyncState loading={loading} error={loadError ? 'Erro ao carregar produções.' : null}
+            onRetry={() => { setLoadError(false); setLoading(true); fetchPage(1).finally(() => setLoading(false)) }}
             empty={!items.length} emptyEntityName="produção" emptySearch=""
-            emptyAction={{ label: 'Ir para Receitas', onClick: () => navigate('/recipes') }}>
-            <div className="table-wrapper">
-              <table className="ingredients-table">
-                <thead>
-                  <tr>
-                    <th>Data</th>
-                    <th>Receita</th>
-                    <th>Rendimento</th>
-                    <th>Custo Total</th>
-                    <th>Custo Unit.</th>
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {items.map(p => (
-                    <tr key={p.id}>
-                      <td>{fmtDate(p.produced_at)}</td>
-                      <td>{p.snapshot.recipe_name}</td>
-                      <td>{fmtQuantity(p.total_yield)} {p.snapshot.yield_unit}</td>
-                      <td>R$ {fmtCurrency(p.total_cost)}</td>
-                      <td>R$ {fmtCurrency(p.unit_cost)}</td>
-                      <td>
-                        <div className="td-actions">
-                          <button className="btn btn-danger btn-sm" onClick={() => deleteProduction.open(p)}>Excluir</button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            emptyAction={{ label: 'Ir para Produtos', onClick: () => navigate('/produtos') }}>
+            <div className="production-list">
+              {items.map(p => (
+                <ProductionCard key={p.id} production={p} onCancel={cancelProduction.open} />
+              ))}
               <LoadMoreButton hasMore={meta.current_page < meta.last_page} loading={loadingMore} onLoadMore={loadMore} />
             </div>
           </AsyncState>
@@ -129,13 +101,13 @@ export function Productions() {
       </main>
 
       <ConfirmModal
-        visible={deleteProduction.confirm.visible}
-        title="Excluir Produção"
-        message={<>Excluir a produção de <strong>{deleteProduction.confirm.item?.snapshot.recipe_name}</strong>? Esta ação não pode ser desfeita.</>}
-        loading={deleteProduction.confirm.loading}
-        confirmText="Excluir"
-        onConfirm={deleteProduction.execute}
-        onClose={deleteProduction.close}
+        visible={cancelProduction.confirm.visible}
+        title="Cancelar Produção"
+        message={<>Cancelar a produção de <strong>{cancelProduction.confirm.item?.snapshot.product_name ?? cancelProduction.confirm.item?.snapshot.recipe_name}</strong>? O registro ficará no histórico como cancelado.</>}
+        loading={cancelProduction.confirm.loading}
+        confirmText="Cancelar produção"
+        onConfirm={cancelProduction.execute}
+        onClose={cancelProduction.close}
       />
     </div>
   )

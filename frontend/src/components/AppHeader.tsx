@@ -25,11 +25,23 @@ interface SettingsForm {
   profit_multiplier: number
 }
 
-const NAV_LINKS = [
-  { path: '/dashboard',    label: '📊 Dashboard' },
-  { path: '/ingredients',  label: '🥕 Ingredientes' },
-  { path: '/recipes',      label: '📖 Receitas' },
-  { path: '/producoes',    label: '🏭 Produções' },
+interface NavLink { path: string; label: string; feature?: 'has_products' | 'has_production'; lockedMsg?: string }
+
+const NAV_GROUPS: { title?: string; links: NavLink[] }[] = [
+  { links: [
+    { path: '/dashboard', label: '📊 Dashboard' },
+  ] },
+  { title: 'Cadastros', links: [
+    { path: '/ingredients', label: '🥕 Ingredientes' },
+    { path: '/insumos',     label: '📦 Insumos' },
+  ] },
+  { title: 'O que eu faço', links: [
+    { path: '/recipes',  label: '📖 Receitas' },
+    { path: '/produtos', label: '🏷️ Produtos', feature: 'has_products', lockedMsg: 'O cadastro de produtos está disponível nos planos pagos.' },
+  ] },
+  { title: 'Histórico', links: [
+    { path: '/producoes', label: '🏭 Lotes', feature: 'has_production', lockedMsg: 'O histórico de produção está disponível nos planos pagos.' },
+  ] },
 ]
 
 export function AppHeader() {
@@ -130,21 +142,26 @@ export function AppHeader() {
           <Link to="/dashboard" className="header-brand"><BrandLogo height={60} /></Link>
         </div>
         <nav className="sidebar-nav">
-          {NAV_LINKS.map(link => (
-            <Link
-              key={link.path}
-              to={link.path}
-              className={pathname === link.path ? 'active' : ''}
-              onClick={e => {
-                if (link.path === '/producoes' && !getUser()?.plan.has_production) {
-                  e.preventDefault()
-                  triggerPlanUpgrade('O histórico de produções está disponível nos planos pagos.')
-                }
-                setSidebarOpen(false)
-              }}
-            >
-              {link.label}
-            </Link>
+          {NAV_GROUPS.map((group, gi) => (
+            <div key={group.title ?? `group-${gi}`} className="sidebar-nav-group">
+              {group.title && <span className="sidebar-nav-group-title">{group.title}</span>}
+              {group.links.map(link => (
+                <Link
+                  key={link.path}
+                  to={link.path}
+                  className={pathname === link.path ? 'active' : ''}
+                  onClick={e => {
+                    if (link.feature && !getUser()?.plan[link.feature]) {
+                      e.preventDefault()
+                      triggerPlanUpgrade(link.lockedMsg)
+                    }
+                    setSidebarOpen(false)
+                  }}
+                >
+                  {link.label}
+                </Link>
+              ))}
+            </div>
           ))}
         </nav>
         <div className="sidebar-user">
@@ -187,7 +204,7 @@ export function AppHeader() {
         onClose={settingsModal.close}
         onSubmit={saveSettings}
       >
-        <p className="settings-hint">Esses valores são usados como padrão ao criar novas receitas.</p>
+        <p className="settings-hint">Custos invisíveis: padrão ao criar novas <strong>receitas</strong>. Multiplicador de lucro: padrão ao criar novos <strong>produtos</strong>.</p>
         <InvisibleCostField
           value={settingsForm.invisible_cost_pct}
           onChange={v => setSettingsForm(f => ({ ...f, invisible_cost_pct: v }))}

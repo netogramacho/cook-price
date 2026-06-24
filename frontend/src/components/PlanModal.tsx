@@ -10,18 +10,22 @@ function buildFeatures(plan: UserPlan): string[] {
   const features: string[] = []
 
   features.push(plan.max_recipes === null ? 'Receitas ilimitadas' : `Até ${plan.max_recipes} receitas`)
-  features.push(plan.max_ingredients === null ? 'Ingredientes ilimitados' : `Até ${plan.max_ingredients} ingredientes`)
+  features.push(plan.max_ingredients === null ? 'Ingredientes e insumos ilimitados' : `Até ${plan.max_ingredients} ingredientes e insumos`)
 
-  features.push('Calcule o custo de cada receita')
+  features.push('Veja o custo dos ingredientes de cada receita')
 
   if (plan.has_pricing) {
-    features.push('Inclui gás, energia e outros gastos no cálculo')
-    features.push('Descubra o preço certo para não trabalhar no prejuízo')
+    features.push('Custo real: inclui gás, energia e mão de obra')
+  }
+
+  if (plan.has_products) {
+    features.push(plan.max_products === null ? 'Produtos ilimitados' : `Monte até ${plan.max_products} produtos para vender`)
+    features.push('Combine receitas + insumos e descubra o preço de venda')
   }
 
   if (plan.has_production) {
     features.push('Registre cada lote que você produz')
-    features.push('Acompanhe o que produziu hoje e no mês')
+    features.push('Acompanhe o custo produzido hoje e no mês')
   }
 
   return features
@@ -189,8 +193,9 @@ export function PlanModal({ visible, onClose, message }: Props) {
     }, 220)
   }
 
+  const isTrial            = currentPlan?.name === 'trial'
   const pendingOrPaused    = subscription?.mp_status === 'pending' || subscription?.mp_status === 'paused'
-  const cancelledWithAccess = subscription?.mp_status === 'cancelled' && !!subscription?.cancel_at_period_end
+  const cancelledWithAccess = !isTrial && subscription?.mp_status === 'cancelled' && !!subscription?.cancel_at_period_end
 
   if (!visible && !isClosing) return null
 
@@ -224,6 +229,12 @@ export function PlanModal({ visible, onClose, message }: Props) {
                 <div className="plan-status-alert plan-status-paused">
                   Assinatura cancelada. Você ainda tem acesso ao plano até{' '}
                   {subscription.ends_at ? new Date(subscription.ends_at).toLocaleDateString('pt-BR') : '—'}.
+                </div>
+              )}
+              {isTrial && (
+                <div className="plan-status-alert plan-status-paused">
+                  🎁 Período de experimentação. Você tem acesso completo a todas as funcionalidades até{' '}
+                  {subscription?.ends_at ? new Date(subscription.ends_at).toLocaleDateString('pt-BR') : '—'}.
                 </div>
               )}
 

@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Services\RecipeCostService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class RecipeController extends Controller
 {
@@ -63,8 +64,8 @@ class RecipeController extends Controller
             'description'         => $request->description,
             'yield'               => $request->yield,
             'yield_unit'          => $request->yield_unit,
-            'invisible_cost_pct'  => $request->invisible_cost_pct,
-            'profit_multiplier'   => $request->profit_multiplier,
+            'invisible_cost_pct'  => $plan->has_pricing ? $request->invisible_cost_pct : 25,
+            'profit_multiplier'   => $plan->has_pricing ? $request->profit_multiplier  : 3.0,
         ]);
 
         $recipe->ingredients()->sync(
@@ -102,7 +103,13 @@ class RecipeController extends Controller
 
         $plan = $request->user()->load('plan')->plan;
 
-        $recipe->update($request->only('name', 'description', 'yield', 'yield_unit', 'invisible_cost_pct', 'profit_multiplier'));
+        $recipe->update(array_merge(
+            $request->only('name', 'description', 'yield', 'yield_unit'),
+            [
+                'invisible_cost_pct' => $plan->has_pricing ? $request->invisible_cost_pct : 25,
+                'profit_multiplier'  => $plan->has_pricing ? $request->profit_multiplier  : 3.0,
+            ]
+        ));
 
         if ($request->has('ingredients')) {
             $recipe->ingredients()->sync(
@@ -142,7 +149,10 @@ class RecipeController extends Controller
         $recipe->load('ingredients');
         $sync = [];
         foreach ($recipe->ingredients as $ingredient) {
-            $sync[$ingredient->id] = ['quantity' => $ingredient->pivot->quantity];
+            $sync[$ingredient->id] = [
+                'quantity' => $ingredient->pivot->quantity,
+                'unit'     => $ingredient->pivot->unit,
+            ];
         }
         $copy->ingredients()->sync($sync);
 
@@ -160,6 +170,8 @@ class RecipeController extends Controller
     {
         if ($denied = $this->authorizeRecipe($request, $recipe)) return $denied;
 
+        if ($conflict = $this->checkRecipeInUse($recipe)) return $conflict;
+
         $recipe->delete();
 
         return response()->json([
@@ -167,6 +179,25 @@ class RecipeController extends Controller
             'data'    => null,
             'message' => 'Receita excluída com sucesso.',
         ]);
+    }
+
+    private function checkRecipeInUse(Recipe $recipe): ?JsonResponse
+    {
+        $count = DB::table('product_recipes')
+            ->join('products', 'products.id', '=', 'product_recipes.product_id')
+            ->where('product_recipes.recipe_id', $recipe->id)
+            ->where('products.active', true)
+            ->count();
+
+        if ($count === 0) return null;
+
+        $produtos = $count === 1 ? 'produto' : 'produtos';
+
+        return response()->json([
+            'success'    => false,
+            'message'    => "Esta receita está sendo usada em {$count} {$produtos}. Remova-a antes de excluir.",
+            'error_code' => 'RECIPE_IN_USE',
+        ], 409);
     }
 
     private function authorizeRecipe(Request $request, Recipe $recipe): ?JsonResponse
@@ -200,7 +231,10 @@ class RecipeController extends Controller
     {
         $sync = [];
         foreach ($ingredients as $item) {
-            $sync[$item['ingredient_id']] = ['quantity' => $item['quantity']];
+            $sync[$item['ingredient_id']] = [
+                'quantity' => $item['quantity'],
+                'unit'     => $item['unit'],
+            ];
         }
         return $sync;
     }
@@ -218,7 +252,7 @@ class RecipeController extends Controller
             'updated_at'                => $recipe->updated_at,
             'ingredients'               => $cost['ingredients'],
             'ingredients_cost'          => $cost['ingredients_cost'],
-            'packaging_cost'            => $cost['packaging_cost'],
+            'insumos_cost'              => $cost['insumos_cost'],
             'invisible_cost_pct'        => $has_pricing ? $cost['invisible_cost_pct']        : null,
             'invisible_cost'            => $has_pricing ? $cost['invisible_cost']            : null,
             'production_cost'           => $has_pricing ? $cost['production_cost']           : null,
