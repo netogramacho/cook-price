@@ -70,7 +70,7 @@ export function ProductForm({ initial, submitLabel = 'Salvar Produto', onSubmit,
     // Em produto novo, usa o multiplicador de lucro padrão do usuário (Configurações)
     if (!initial) {
       UserService.get()
-        .then(u => setForm(f => ({ ...f, profit_multiplier: Number((u as Record<string, unknown>).profit_multiplier ?? 3) })))
+        .then(u => setForm(f => ({ ...f, profit_multiplier: Number(u.profit_multiplier ?? 3) })))
         .catch(() => {})
     }
   }, [])

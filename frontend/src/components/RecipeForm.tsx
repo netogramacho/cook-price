@@ -56,16 +56,16 @@ export function RecipeForm({ initial, submitLabel = 'Salvar Receita', onSubmit, 
   const [errors, setErrors] = useState<Record<string, string[]>>({})
 
   useEffect(() => {
-    const loads: [Promise<Ingredient[]>, Promise<unknown>?] = [IngredientService.getAll()]
-    if (!initial) loads[1] = UserService.get()
-    Promise.all(loads)
-      .then(([ingredients, user]) => {
-        setAvailableIngredients(ingredients)
-        if (!initial && user) {
-          setForm(f => ({ ...f, invisible_cost_pct: Number((user as Record<string, unknown>).invisible_cost_pct ?? 25) }))
-        }
-      })
+    IngredientService.getAll()
+      .then(setAvailableIngredients)
       .catch(() => error('Erro ao carregar dados.'))
+
+    // Em receita nova, usa o custo invisível padrão do usuário (Configurações)
+    if (!initial) {
+      UserService.get()
+        .then(u => setForm(f => ({ ...f, invisible_cost_pct: Number(u.invisible_cost_pct ?? 25) })))
+        .catch(() => {})
+    }
   }, [])
 
   function updateRow(index: number, field: keyof IngredientRow, value: string) {
