@@ -110,7 +110,7 @@ class SubscriptionController extends Controller
             ], 502);
         }
 
-        $endsAt = $subscription->current_period_end
+        $endsAt = $subscription->ends_at
             ?? ($subscription->starts_at ? $subscription->starts_at->addMonth() : now()->addMonth());
 
         $subscription->update([

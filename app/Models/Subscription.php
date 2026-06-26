@@ -16,14 +16,12 @@ class Subscription extends Model
         'mp_status',
         'starts_at',
         'ends_at',
-        'current_period_end',
         'cancel_at_period_end',
     ];
 
     protected $casts = [
         'starts_at'            => 'datetime',
         'ends_at'              => 'datetime',
-        'current_period_end'   => 'datetime',
         'cancel_at_period_end' => 'boolean',
     ];
 

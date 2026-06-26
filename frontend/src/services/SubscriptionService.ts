@@ -6,7 +6,6 @@ export interface SubscriptionData {
   mp_status: 'pending' | 'authorized' | 'paused' | 'cancelled'
   starts_at: string | null
   ends_at: string | null
-  current_period_end: string | null
   cancel_at_period_end: boolean
   plan: UserPlan
 }

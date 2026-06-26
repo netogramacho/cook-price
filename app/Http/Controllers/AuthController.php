@@ -34,7 +34,6 @@ class AuthController extends Controller
             'mp_status'            => 'cancelled',
             'starts_at'            => now(),
             'ends_at'              => $trial_ends_at,
-            'current_period_end'   => $trial_ends_at,
             'cancel_at_period_end' => true,
         ]);
 

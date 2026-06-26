@@ -85,7 +85,7 @@ class WebhookController extends Controller
             : null;
 
         $subscription->update([
-            'current_period_end'   => $nextPaymentDate,
+            'ends_at'              => $nextPaymentDate,
             'cancel_at_period_end' => false,
         ]);
 
@@ -102,7 +102,7 @@ class WebhookController extends Controller
             'mp_status'          => 'authorized',
             'starts_at'          => now(),
             'cancel_at_period_end' => false,
-            'current_period_end' => $nextPaymentDate,
+            'ends_at'            => $nextPaymentDate,
         ]);
 
         $user = $subscription->user;

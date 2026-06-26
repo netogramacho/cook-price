@@ -282,8 +282,8 @@ export function PlanModal({ visible, onClose, message }: Props) {
                     <div className="plan-cancel-confirm">
                       <p>
                         Tem certeza? Você ainda terá acesso ao plano até o fim do período atual
-                        {subscription.current_period_end
-                          ? ` (${new Date(subscription.current_period_end).toLocaleDateString('pt-BR')})`
+                        {subscription.ends_at
+                          ? ` (${new Date(subscription.ends_at).toLocaleDateString('pt-BR')})`
                           : ''
                         }.
                       </p>

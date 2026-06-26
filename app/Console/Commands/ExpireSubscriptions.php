@@ -17,7 +17,7 @@ class ExpireSubscriptions extends Command
         $freePlan = Plan::free();
 
         $expired = Subscription::where('cancel_at_period_end', true)
-            ->where('current_period_end', '<=', now())
+            ->where('ends_at', '<=', now())
             ->with('user')
             ->get();
 
