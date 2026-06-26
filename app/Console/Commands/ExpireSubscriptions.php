@@ -26,14 +26,18 @@ class ExpireSubscriptions extends Command
         foreach ($expired as $subscription) {
             $user = $subscription->user;
 
-            // Não rebaixar quem já trocou de plano (ex.: pagou durante o período).
+            // Assinatura antiga que já não corresponde ao plano atual do usuário
+            // (ex.: trocou ou reassinou): não governa mais o acesso. Marca como
+            // processada para não reincidir nas próximas execuções e segue.
             if (!$user || $user->plan_id !== $subscription->plan_id) {
+                $subscription->update(['cancel_at_period_end' => false]);
                 continue;
             }
 
             $subscription->update([
-                'mp_status' => 'cancelled',
-                'ends_at'   => now(),
+                'mp_status'            => 'cancelled',
+                'cancel_at_period_end' => false, // processada: sai da fila de candidatas
+                'ends_at'              => now(),
             ]);
 
             $user->plan_id = $freePlan->id;
