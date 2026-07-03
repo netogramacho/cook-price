@@ -22,6 +22,11 @@ class MercadoPagoService
         $this->webhookSecret = config('mercadopago.webhook_secret');
         $this->backUrl       = config('mercadopago.back_url');
         $this->verifySsl     = (bool) config('mercadopago.verify_ssl', true);
+
+        // Detecta configuracao ausente no boot, em vez de falhar silenciosamente em producao.
+        if (empty($this->webhookSecret) && app()->environment('production')) {
+            throw new \RuntimeException('MP_WEBHOOK_SECRET nao configurado.');
+        }
     }
 
     public function createPreapproval(User $user, Plan $plan): array
@@ -117,6 +122,12 @@ class MercadoPagoService
 
     public function validateWebhookSignature(Request $request): bool
     {
+        // Sem secret configurado, nenhum webhook e confiavel (falha fechada).
+        // hash_hmac com chave vazia geraria um HMAC valido e forjavel pelo atacante.
+        if (empty($this->webhookSecret)) {
+            return false;
+        }
+
         $signatureHeader = $request->header('x-signature');
         $requestId       = $request->header('x-request-id', '');
 

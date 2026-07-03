@@ -242,7 +242,9 @@ export function PlanModal({ visible, onClose, message }: Props) {
                 {plans.map(plan => {
                   const isCurrent   = currentPlan?.name === plan.name
                   const isUpgrading = upgradingTo === plan.name
-                  const canUpgrade  = plan.name !== 'free' && !isCurrent && !pendingOrPaused && !cancelledWithAccess
+                  // Só permite subir de plano: downgrade é bloqueado (espelha o backend).
+                  const isUpgradePrice = Number(plan.price) > Number(currentPlan?.price ?? 0)
+                  const canUpgrade  = plan.name !== 'free' && !isCurrent && !pendingOrPaused && !cancelledWithAccess && isUpgradePrice
                   const features    = buildFeatures(plan)
 
                   return (

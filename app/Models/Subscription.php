@@ -25,6 +25,16 @@ class Subscription extends Model
         'cancel_at_period_end' => 'boolean',
     ];
 
+    // Oculta identificadores internos/sensiveis da serializacao (ex.: /subscriptions/current).
+    // Resultado bate com o contrato TS SubscriptionData (id, mp_status, datas, flag, plan).
+    protected $hidden = [
+        'mp_preapproval_id',
+        'user_id',
+        'plan_id',
+        'created_at',
+        'updated_at',
+    ];
+
     public function user(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(User::class);

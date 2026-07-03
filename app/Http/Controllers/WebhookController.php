@@ -79,31 +79,77 @@ class WebhookController extends Controller
             return;
         }
 
-        $preapproval     = $this->mp->getPreapproval($preapprovalId);
+        $preapproval = $this->mp->getPreapproval($preapprovalId);
+
+        // Fonte da verdade e o status atual da preapproval no MP, nao o nosso estado
+        // local. Um authorized_payment atrasado/reentregue sobre uma preapproval que
+        // ja nao esta ativa (usuario cancelou pelo app, ou o MP encerrou) e ignorado:
+        // nao ha cobranca legitima, entao nao ressuscita o acesso — evita acesso pago
+        // gratuito perpetuo por webhook fora de ordem.
+        if (($preapproval['status'] ?? null) !== 'authorized') {
+            $this->mp->logIncomingWebhook($request, true, "Pagamento ignorado: preapproval {$preapprovalId} nao esta ativa no MP.");
+            return;
+        }
+
         $nextPaymentDate = isset($preapproval['next_payment_date'])
             ? \Carbon\Carbon::parse($preapproval['next_payment_date'])
             : null;
 
+        // Pagamento confirmado reativa/renova a assinatura: reverte a pausa, atualiza
+        // o periodo e garante o usuario no plano pago (ex.: trocou o cartao e pagou
+        // apos uma pausa que ja havia rebaixado para Free).
         $subscription->update([
+            'mp_status'            => 'authorized',
             'ends_at'              => $nextPaymentDate,
             'cancel_at_period_end' => false,
         ]);
+
+        $user = $subscription->user;
+        if ($user && $user->plan_id !== $subscription->plan_id) {
+            $user->plan_id = $subscription->plan_id;
+            $user->save();
+        }
 
         $this->mp->logIncomingWebhook($request, true);
     }
 
     private function handleAuthorized(Subscription $subscription, array $preapproval): void
     {
+        // Ignora webhook de assinatura superada: se existe outra assinatura mais
+        // recente para o mesmo usuario (troca de plano, reassinatura), ela e quem
+        // governa o plano. Sem isto, um webhook fora de ordem de uma assinatura
+        // antiga regravaria o plano errado — o MP nao garante ordem de entrega.
+        $hasNewer = Subscription::where('user_id', $subscription->user_id)
+            ->where('created_at', '>', $subscription->created_at)
+            ->exists();
+
+        if ($hasNewer) {
+            return;
+        }
+
+        // Idempotencia: se a assinatura ja esta authorized, esta e uma reentrega do
+        // mesmo evento (o MP reenvia rotineiramente). Nao reseta starts_at nem
+        // reenvia o e-mail de ativacao — so a transicao para authorized conta como
+        // primeira ativacao.
+        $isFirstActivation = $subscription->mp_status !== 'authorized';
+
         $nextPaymentDate = isset($preapproval['next_payment_date'])
             ? \Carbon\Carbon::parse($preapproval['next_payment_date'])
             : null;
 
-        $subscription->update([
-            'mp_status'          => 'authorized',
-            'starts_at'          => now(),
+        $data = [
+            'mp_status'            => 'authorized',
             'cancel_at_period_end' => false,
-            'ends_at'            => $nextPaymentDate,
-        ]);
+            'ends_at'              => $nextPaymentDate,
+        ];
+
+        // starts_at so na primeira ativacao — preserva a janela de acesso original,
+        // usada em SubscriptionController::cancel() para calcular o fim do periodo.
+        if ($isFirstActivation) {
+            $data['starts_at'] = now();
+        }
+
+        $subscription->update($data);
 
         $user = $subscription->user;
         if ($user->plan_id !== $subscription->plan_id) {
@@ -111,7 +157,11 @@ class WebhookController extends Controller
             $user->save();
         }
 
-        Mail::to($user->email)->queue(new SubscriptionActivated($user, $subscription->plan));
+        // E-mail de ativacao apenas uma vez, na primeira ativacao (evita duplicados
+        // a cada reentrega do webhook).
+        if ($isFirstActivation) {
+            Mail::to($user->email)->queue(new SubscriptionActivated($user, $subscription->plan));
+        }
     }
 
     private function handleCancelled(Subscription $subscription): void
@@ -142,6 +192,20 @@ class WebhookController extends Controller
 
     private function handlePaused(Subscription $subscription): void
     {
-        $subscription->update(['mp_status' => 'paused']);
+        // Idempotente: reentregas do mesmo evento nao reprocessam.
+        if ($subscription->mp_status === 'paused') {
+            return;
+        }
+
+        // O MP pausa apos falhas de cobranca (ex.: cartao expirado). Mantem o acesso
+        // ate o fim do periodo ja pago (ends_at) e coloca a assinatura no radar do
+        // cron: se o pagamento nao for regularizado, app:expire-subscriptions rebaixa
+        // para Free ao expirar. Se o cartao for atualizado e o MP voltar a cobrar, o
+        // webhook authorized_payment reativa a assinatura.
+        $subscription->update([
+            'mp_status'            => 'paused',
+            'cancel_at_period_end' => true,
+            'ends_at'              => $subscription->ends_at ?? now(),
+        ]);
     }
 }

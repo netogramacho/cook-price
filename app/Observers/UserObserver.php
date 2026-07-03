@@ -3,6 +3,7 @@
 namespace App\Observers;
 
 use App\Models\Ingredient;
+use App\Models\Product;
 use App\Models\Recipe;
 use App\Models\User;
 
@@ -26,6 +27,12 @@ class UserObserver
             Ingredient::class,
             $user->id,
             $plan->max_ingredients
+        );
+
+        $this->rebalanceActive(
+            Product::class,
+            $user->id,
+            $plan->max_products
         );
     }
 
