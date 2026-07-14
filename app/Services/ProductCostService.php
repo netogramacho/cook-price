@@ -22,18 +22,21 @@ class ProductCostService
     public function calculate(Product $product): array
     {
         $recipes = $product->recipes->map(function ($recipe) {
-            $breakdown     = $this->recipeCostService->calculate($recipe);
-            $cost_per_yield = (float) $breakdown['cost_per_yield'];
-            $quantity      = (float) $recipe->pivot->quantity;
-            $subtotal      = round($cost_per_yield * $quantity, 2);
+            // A quantidade é medida em NÚMERO DE RECEITAS (ex.: 1 = receita inteira,
+            // 0,5 = meia receita), então o custo unitário é o da receita inteira
+            // (production_cost), não o custo por unidade de rendimento.
+            $breakdown   = $this->recipeCostService->calculate($recipe);
+            $recipe_cost = (float) $breakdown['production_cost'];
+            $quantity    = (float) $recipe->pivot->quantity;
+            $subtotal    = round($recipe_cost * $quantity, 2);
 
             return [
-                'id'             => $recipe->id,
-                'name'           => $recipe->name,
-                'yield_unit'     => $recipe->yield_unit,
-                'cost_per_yield' => round($cost_per_yield, 4),
-                'quantity'       => $recipe->pivot->quantity,
-                'subtotal'       => $subtotal,
+                'id'          => $recipe->id,
+                'name'        => $recipe->name,
+                'yield_unit'  => $recipe->yield_unit,
+                'recipe_cost' => round($recipe_cost, 2),
+                'quantity'    => $recipe->pivot->quantity,
+                'subtotal'    => $subtotal,
             ];
         });
 

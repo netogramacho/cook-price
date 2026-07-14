@@ -164,13 +164,14 @@ export function ProductForm({ initial, submitLabel = 'Salvar Produto', onSubmit,
       <div className="form-section-header">
         <p className="section-title" style={{ marginBottom: 0 }}>Receitas</p>
       </div>
+      <p className="multiplier-hint" style={{ marginTop: 0 }}>Quantidade em número de receitas — ex.: 1 = receita inteira, 0,5 = meia receita.</p>
       <span className="field-error">{errors.recipes?.[0] ?? ''}</span>
       <div className="ingredient-rows">
         {recipeRows.map((row, index) => (
           <div key={index} className="ingredient-row">
             <IngredientAutocomplete value={row.recipe_id} options={recipeOptions} placeholder="Buscar receita..."
               onChange={id => updateRecipeRow(index, 'recipe_id', id)} />
-            <NumericInput value={row.quantity} placeholder="Qtd" onChange={v => updateRecipeRow(index, 'quantity', v)} />
+            <NumericInput value={row.quantity} placeholder="Nº receitas" onChange={v => updateRecipeRow(index, 'quantity', v)} />
             <button type="button" className="btn btn-danger btn-sm" onClick={() => setRecipeRows(rows => rows.filter((_, i) => i !== index))}>×</button>
           </div>
         ))}

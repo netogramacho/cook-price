@@ -36,7 +36,7 @@ export function ProductDetail() {
   const unpricedCount = product
     ? product.ingredients.filter(i => Number(i.last_price) === 0).length
       + product.insumos.filter(i => Number(i.last_price) === 0).length
-      + product.recipes.filter(r => Number(r.cost_per_yield) === 0).length
+      + product.recipes.filter(r => Number(r.recipe_cost) === 0).length
     : 0
 
   // ---- Modo edição (inline) ----
@@ -137,13 +137,13 @@ export function ProductDetail() {
                   ) : (
                     <table>
                       <thead>
-                        <tr><th>Receita</th><th>Custo/un</th><th>Quantidade</th><th>Subtotal</th><th></th></tr>
+                        <tr><th>Receita</th><th>Custo/receita</th><th>Receitas</th><th>Subtotal</th><th></th></tr>
                       </thead>
                       <tbody>
                         {product.recipes.map(r => (
                           <tr key={r.id}>
                             <td>{r.name}</td>
-                            <td>{Number(r.cost_per_yield) === 0 ? <span className="tag-no-price">Sem preço</span> : `R$ ${fmtCurrency(r.cost_per_yield)}`}</td>
+                            <td>{Number(r.recipe_cost) === 0 ? <span className="tag-no-price">Sem preço</span> : `R$ ${fmtCurrency(r.recipe_cost)}`}</td>
                             <td>{fmtQuantity(r.quantity)}</td>
                             <td>R$ {fmtCurrency(r.subtotal)}</td>
                             <td>

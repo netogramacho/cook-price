@@ -4,7 +4,7 @@ export interface ProductRecipeLine {
   id: string
   name: string
   yield_unit: string
-  cost_per_yield: number
+  recipe_cost: number
   quantity: number
   subtotal: number
 }
