@@ -46,6 +46,7 @@ export function PlanModal({ visible, onClose, message }: Props) {
   const [plans, setPlans] = useState<UserPlan[]>([])
   const [currentPlan, setCurrentPlan] = useState<UserPlan | null>(getUser()?.plan ?? null)
   const [subscription, setSubscription] = useState<SubscriptionData | null>(null)
+  const [pending, setPending] = useState<SubscriptionData | null>(null)
   const [loadingPlan, setLoadingPlan] = useState(false)
   const [upgradingTo, setUpgradingTo] = useState<string | null>(null)
   const [cancelling, setCancelling] = useState(false)
@@ -74,6 +75,12 @@ export function PlanModal({ visible, onClose, message }: Props) {
     return data
   }
 
+  async function refreshPending() {
+    const p = await SubscriptionService.currentPending()
+    setPending(p)
+    return p
+  }
+
   useEffect(() => {
     if (!visible) {
       stopPolling()
@@ -84,6 +91,7 @@ export function PlanModal({ visible, onClose, message }: Props) {
     Promise.all([
       PlanService.getAll(),
       refreshSubscription(),
+      refreshPending(),
     ])
       .then(([fetchedPlans]) => setPlans(fetchedPlans))
       .catch(() => error('Erro ao carregar dados do plano.'))
@@ -93,7 +101,7 @@ export function PlanModal({ visible, onClose, message }: Props) {
   }, [visible])
 
   useEffect(() => {
-    if (!visible || subscription?.mp_status !== 'pending') {
+    if (!visible || !pending) {
       stopPolling()
       return
     }
@@ -103,11 +111,16 @@ export function PlanModal({ visible, onClose, message }: Props) {
       pollAttemptsRef.current++
 
       try {
-        const data = await refreshSubscription()
+        const stillPending = await refreshPending()
 
-        if (data.subscription?.mp_status === 'authorized') {
+        // Pending resolvida: virou authorized (ou foi embora). Atualiza a vigente e,
+        // se de fato ativou, avisa o usuario.
+        if (!stillPending) {
+          const data = await refreshSubscription()
           stopPolling()
-          success('Assinatura confirmada! Seu plano foi ativado.')
+          if (data.subscription?.mp_status === 'authorized') {
+            success('Assinatura confirmada! Seu plano foi ativado.')
+          }
           return
         }
 
@@ -121,7 +134,7 @@ export function PlanModal({ visible, onClose, message }: Props) {
     }, POLL_INTERVAL_MS)
 
     return () => stopPolling()
-  }, [visible, subscription?.mp_status])
+  }, [visible, pending?.id])
 
   useEffect(() => {
     if (!confirmCancel) {
@@ -166,6 +179,7 @@ export function PlanModal({ visible, onClose, message }: Props) {
       setUser(user)
       setCurrentPlan(user.plan)
       await refreshSubscription()
+      await refreshPending()
       setConfirmCancel(false)
 
       const endsAt = result.ends_at
@@ -194,7 +208,7 @@ export function PlanModal({ visible, onClose, message }: Props) {
   }
 
   const isTrial            = currentPlan?.name === 'trial'
-  const pendingOrPaused    = subscription?.mp_status === 'pending' || subscription?.mp_status === 'paused'
+  const pendingOrPaused    = !!pending || subscription?.mp_status === 'paused'
   const cancelledWithAccess = !isTrial && subscription?.mp_status === 'cancelled' && !!subscription?.cancel_at_period_end
 
   if (!visible && !isClosing) return null
@@ -214,7 +228,7 @@ export function PlanModal({ visible, onClose, message }: Props) {
             <p className="plan-loading">Carregando...</p>
           ) : (
             <>
-              {subscription?.mp_status === 'pending' && (
+              {pending && (
                 <div className="plan-status-alert plan-status-pending">
                   Aguardando confirmação do pagamento...
                 </div>

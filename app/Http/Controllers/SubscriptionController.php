@@ -19,10 +19,16 @@ class SubscriptionController extends Controller
 
     public function current(Request $request): JsonResponse
     {
-        $user         = $request->user()->load('plan');
+        $user = $request->user()->load('plan');
+
+        // Assinatura VIGENTE (a que governa o acesso): exclui 'pending' (checkout em
+        // andamento vive em currentPending) e prioriza authorized > paused > cancelled.
+        // Assim uma pending nunca mascara a assinatura ativa/estado real (#13).
         $subscription = Subscription::where('user_id', $user->id)
+            ->where('mp_status', '!=', 'pending')
             ->with('plan')
-            ->latest()
+            ->orderByRaw("FIELD(mp_status, 'authorized', 'paused', 'cancelled')")
+            ->orderByDesc('created_at')
             ->first();
 
         return response()->json([
@@ -32,6 +38,25 @@ class SubscriptionController extends Controller
                 'subscription' => $subscription,
             ],
             'message' => 'Dados de assinatura carregados.',
+        ]);
+    }
+
+    public function currentPending(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        // Checkout em andamento (se houver). Separado da vigente para o polling
+        // "aguardando pagamento" e para nao mascarar o estado real na tela.
+        $pending = Subscription::where('user_id', $user->id)
+            ->where('mp_status', 'pending')
+            ->with('plan')
+            ->latest()
+            ->first();
+
+        return response()->json([
+            'success' => true,
+            'data'    => ['subscription' => $pending],
+            'message' => 'Checkout pendente carregado.',
         ]);
     }
 
@@ -78,6 +103,30 @@ class SubscriptionController extends Controller
                 ], 422);
             }
 
+            // Retoma o checkout de uma pending recente do MESMO plano (< 24h) em vez de
+            // criar outra preapproval — evita acumular checkouts orfaos.
+            $resumable = Subscription::where('user_id', $user->id)
+                ->where('plan_id', $plan->id)
+                ->where('mp_status', 'pending')
+                ->whereNotNull('checkout_url')
+                ->where('created_at', '>', now()->subDay())
+                ->latest()
+                ->first();
+
+            if ($resumable) {
+                return response()->json([
+                    'success' => true,
+                    'data'    => ['checkout_url' => $resumable->checkout_url],
+                    'message' => 'Retomando o checkout iniciado anteriormente.',
+                ]);
+            }
+
+            // Sem checkout retomavel: todas as pendings existentes (stale do mesmo plano
+            // ou de outros planos) serao canceladas para nao deixar checkouts vivos.
+            $stalePendings = Subscription::where('user_id', $user->id)
+                ->where('mp_status', 'pending')
+                ->get();
+
             try {
                 // Cria a nova preapproval ANTES de mexer na antiga. Se isto falhar, a
                 // assinatura antiga segue ativa e cobrando — sem deixar estado orfao.
@@ -94,13 +143,31 @@ class SubscriptionController extends Controller
                 ], 502);
             }
 
-            DB::transaction(function () use ($user, $plan, $preapproval, $activeSubscription) {
+            // Cancela no MP os checkouts abandonados (best-effort: uma pending morta ou
+            // expirada nao deve impedir o novo checkout).
+            foreach ($stalePendings as $stale) {
+                if (!$stale->mp_preapproval_id) {
+                    continue;
+                }
+                try {
+                    $this->mp->cancelPreapproval($stale->mp_preapproval_id);
+                } catch (\RuntimeException $e) {
+                    // ignorado de proposito
+                }
+            }
+
+            DB::transaction(function () use ($user, $plan, $preapproval, $activeSubscription, $stalePendings) {
                 Subscription::create([
                     'user_id'           => $user->id,
                     'plan_id'           => $plan->id,
                     'mp_preapproval_id' => $preapproval['id'],
                     'mp_status'         => 'pending',
+                    'checkout_url'      => $preapproval['init_point'],
                 ]);
+
+                foreach ($stalePendings as $stale) {
+                    $stale->update(['mp_status' => 'cancelled']);
+                }
 
                 if ($activeSubscription) {
                     // cancel_at_period_end=true devolve a antiga ao radar do cron

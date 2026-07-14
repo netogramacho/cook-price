@@ -16,8 +16,12 @@ import { RecipeDetail } from './pages/RecipeDetail'
 import { Products } from './pages/Products'
 import { ProductDetail } from './pages/ProductDetail'
 import { Productions } from './pages/Productions'
+import { AdminUsers } from './pages/AdminUsers'
+import { AdminUserDetail } from './pages/AdminUserDetail'
+import { AdminMpSubscriptions } from './pages/AdminMpSubscriptions'
+import { AdminLogs } from './pages/AdminLogs'
 import { NotFound } from './pages/NotFound'
-import { isAuthenticated, isEmailVerified } from './lib/auth'
+import { isAuthenticated, isEmailVerified, isAdmin } from './lib/auth'
 import { subscribeLoading, subscribePlanUpgrade } from './lib/api'
 import { useAppStore } from './store/useAppStore'
 
@@ -34,6 +38,13 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
 function UnverifiedRoute({ children }: { children: React.ReactNode }) {
   if (!isAuthenticated()) return <Navigate to="/login" replace />
   if (isEmailVerified()) return <Navigate to="/dashboard" replace />
+  return <>{children}</>
+}
+
+function AdminRoute({ children }: { children: React.ReactNode }) {
+  if (!isAuthenticated()) return <Navigate to="/login" replace />
+  if (!isEmailVerified()) return <Navigate to="/verify-email" replace />
+  if (!isAdmin()) return <Navigate to="/dashboard" replace />
   return <>{children}</>
 }
 
@@ -82,6 +93,10 @@ export function App() {
         <Route path="/produtos" element={<ProtectedRoute><Products /></ProtectedRoute>} />
         <Route path="/produtos/:id" element={<ProtectedRoute><ProductDetail /></ProtectedRoute>} />
         <Route path="/producoes" element={<ProtectedRoute><Productions /></ProtectedRoute>} />
+        <Route path="/admin/users" element={<AdminRoute><AdminUsers /></AdminRoute>} />
+        <Route path="/admin/users/:id" element={<AdminRoute><AdminUserDetail /></AdminRoute>} />
+        <Route path="/admin/mp-assinaturas" element={<AdminRoute><AdminMpSubscriptions /></AdminRoute>} />
+        <Route path="/admin/logs" element={<AdminRoute><AdminLogs /></AdminRoute>} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>

@@ -16,7 +16,7 @@ class UserController extends Controller
         return response()->json([
             'success' => true,
             'data'    => array_merge(
-                $user->only('id', 'name', 'email', 'email_verified_at', 'invisible_cost_pct', 'profit_multiplier'),
+                $user->only('id', 'name', 'email', 'email_verified_at', 'invisible_cost_pct', 'profit_multiplier', 'is_admin'),
                 ['plan' => $user->plan]
             ),
             'message' => 'Usuário encontrado.',

@@ -46,6 +46,7 @@ class User extends Authenticatable implements CanResetPasswordContract, MustVeri
             'invisible_cost_pct'     => 'decimal:2',
             'profit_multiplier'      => 'decimal:2',
             'disable_stock_control'  => 'boolean',
+            'is_admin'               => 'boolean',
         ];
     }
 

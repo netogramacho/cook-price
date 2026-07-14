@@ -59,6 +59,24 @@ class MercadoPagoService
         return $response->json();
     }
 
+    /**
+     * Busca preapprovals (assinaturas) direto na API do MercadoPago.
+     * Filtros aceitos: status, limit, offset, payer_email, etc.
+     * Retorna o payload do MP: ['paging' => [...], 'results' => [...]].
+     */
+    public function searchPreapprovals(array $filters = []): array
+    {
+        $response = $this->http()->get('https://api.mercadopago.com/preapproval/search', $filters);
+
+        $this->logOutgoing('search_preapproval', $filters, $response);
+
+        if ($response->failed()) {
+            throw new \RuntimeException('Erro ao buscar assinaturas no MercadoPago.');
+        }
+
+        return $response->json();
+    }
+
     public function getPreapproval(string $preapprovalId): array
     {
         $payload  = ['preapproval_id' => $preapprovalId];

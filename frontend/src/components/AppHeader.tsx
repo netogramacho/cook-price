@@ -10,7 +10,7 @@ import { UserService } from '../services/UserService'
 import { useAppStore } from '../store/useAppStore'
 import { useModal } from '../hooks/useModal'
 import { handleApiError } from '../utils/apiError'
-import { getUser } from '../lib/auth'
+import { getUser, isAdmin } from '../lib/auth'
 import { triggerPlanUpgrade } from '../lib/api'
 import { parseDecimal } from '../utils/inputs'
 
@@ -44,6 +44,14 @@ const NAV_GROUPS: { title?: string; links: NavLink[] }[] = [
   ] },
 ]
 
+const ADMIN_GROUP: { title?: string; links: NavLink[] } = {
+  title: 'Admin', links: [
+    { path: '/admin/users',          label: '👤 Usuários' },
+    { path: '/admin/mp-assinaturas', label: '💳 Assinaturas MP' },
+    { path: '/admin/logs',           label: '🧾 Logs MP' },
+  ],
+}
+
 export function AppHeader() {
   const navigate = useNavigate()
   const { pathname } = useLocation()
@@ -51,6 +59,7 @@ export function AppHeader() {
   const userName = getUser()?.name ?? ''
 
   const hasPricing = !!getUser()?.plan.has_pricing
+  const navGroups = isAdmin() ? [...NAV_GROUPS, ADMIN_GROUP] : NAV_GROUPS
 
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
@@ -142,7 +151,7 @@ export function AppHeader() {
           <Link to="/dashboard" className="header-brand"><BrandLogo height={60} /></Link>
         </div>
         <nav className="sidebar-nav">
-          {NAV_GROUPS.map((group, gi) => (
+          {navGroups.map((group, gi) => (
             <div key={group.title ?? `group-${gi}`} className="sidebar-nav-group">
               {group.title && <span className="sidebar-nav-group-title">{group.title}</span>}
               {group.links.map(link => (

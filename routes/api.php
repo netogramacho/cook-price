@@ -1,6 +1,9 @@
 <?php
 
-use App\Http\Controllers\AdminController;
+use App\Http\Controllers\Admin\IntegrationLogController;
+use App\Http\Controllers\Admin\MpSubscriptionController;
+use App\Http\Controllers\Admin\SubscriptionController as AdminSubscriptionController;
+use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\PlanController;
 use App\Http\Controllers\DashboardController;
@@ -18,8 +21,20 @@ use App\Http\Controllers\WebhookController;
 use App\Http\Middleware\EnsureEmailIsVerified;
 use Illuminate\Support\Facades\Route;
 
-Route::middleware('admin.token')->group(function () {
-    Route::post('admin/users/{userId}/plan', [AdminController::class, 'updateUserPlan']);
+Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function () {
+    Route::get('users',                             [AdminUserController::class, 'index']);
+    Route::get('users/{user}',                      [AdminUserController::class, 'show']);
+    Route::post('users/{user}/plan',                [AdminUserController::class, 'updatePlan']);
+    Route::post('users/{user}/resend-verification', [AdminUserController::class, 'resendVerification']);
+    Route::post('users/{user}/verify-email',        [AdminUserController::class, 'verifyEmail']);
+    Route::post('users/{user}/send-password-reset', [AdminUserController::class, 'sendPasswordReset']);
+
+    Route::post('subscriptions/{subscription}/cancel', [AdminSubscriptionController::class, 'cancel']);
+    Route::post('subscriptions/{subscription}/sync',   [AdminSubscriptionController::class, 'sync']);
+
+    Route::get('mp/subscriptions', [MpSubscriptionController::class, 'index']);
+
+    Route::get('integration-logs', [IntegrationLogController::class, 'index']);
 });
 
 Route::get('plans', [PlanController::class, 'index']);
@@ -65,7 +80,8 @@ Route::middleware(['auth:sanctum', EnsureEmailIsVerified::class])->group(functio
         Route::patch('productions/{production}/cancel', [ProductionController::class, 'cancel']);
     });
 
-    Route::get('subscriptions/current', [SubscriptionController::class, 'current']);
-    Route::post('subscriptions',        [SubscriptionController::class, 'store']);
-    Route::delete('subscriptions',      [SubscriptionController::class, 'cancel']);
+    Route::get('subscriptions/current/pending', [SubscriptionController::class, 'currentPending']);
+    Route::get('subscriptions/current',         [SubscriptionController::class, 'current']);
+    Route::post('subscriptions',                [SubscriptionController::class, 'store']);
+    Route::delete('subscriptions',              [SubscriptionController::class, 'cancel']);
 });

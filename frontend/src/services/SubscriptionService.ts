@@ -20,8 +20,16 @@ export interface CancelResult {
 }
 
 export const SubscriptionService = {
+  // Assinatura vigente (governa o acesso) — nunca uma pending.
   current(): Promise<CurrentSubscription> {
     return api.get<{ data: CurrentSubscription }>('/subscriptions/current').then(r => r.data)
+  },
+
+  // Checkout em andamento (pending), ou null. Usado no polling "aguardando pagamento".
+  currentPending(): Promise<SubscriptionData | null> {
+    return api
+      .get<{ data: { subscription: SubscriptionData | null } }>('/subscriptions/current/pending')
+      .then(r => r.data.subscription)
   },
 
   subscribe(plan: 'basic' | 'pro'): Promise<{ checkout_url: string }> {

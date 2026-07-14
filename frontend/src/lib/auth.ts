@@ -23,6 +23,11 @@ export interface AuthUser {
   profit_multiplier?: number
   invisible_cost_pct?: number
   disable_stock_control?: boolean
+  is_admin?: boolean
+}
+
+export function isAdmin(): boolean {
+  return !!getUser()?.is_admin
 }
 
 export function getToken(): string | null {

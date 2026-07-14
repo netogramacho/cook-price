@@ -14,6 +14,7 @@ class Subscription extends Model
         'plan_id',
         'mp_preapproval_id',
         'mp_status',
+        'checkout_url',
         'starts_at',
         'ends_at',
         'cancel_at_period_end',
@@ -29,6 +30,7 @@ class Subscription extends Model
     // Resultado bate com o contrato TS SubscriptionData (id, mp_status, datas, flag, plan).
     protected $hidden = [
         'mp_preapproval_id',
+        'checkout_url',
         'user_id',
         'plan_id',
         'created_at',

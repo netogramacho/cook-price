@@ -46,7 +46,7 @@ class AuthController extends Controller
             'success' => true,
             'data'    => [
                 'user'  => array_merge(
-                    $user->only('id', 'name', 'email', 'phone', 'email_verified_at'),
+                    $user->only('id', 'name', 'email', 'phone', 'email_verified_at', 'is_admin'),
                     ['plan' => $user->plan]
                 ),
                 'token' => $token,
@@ -73,7 +73,7 @@ class AuthController extends Controller
             'success' => true,
             'data'    => [
                 'user'  => array_merge(
-                    $user->only('id', 'name', 'email', 'phone', 'email_verified_at'),
+                    $user->only('id', 'name', 'email', 'phone', 'email_verified_at', 'is_admin'),
                     ['plan' => $user->plan]
                 ),
                 'token' => $token,

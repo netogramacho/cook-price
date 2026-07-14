@@ -180,8 +180,8 @@ Se um usuário ficar com `plan_id=null` (ex.: factory/seed/admin), o backend ret
 
 ### 🟡 Médio
 - [x] #11 — `UserObserver` rebalanceia também `Product` no downgrade (`max_products`); `Ingredient` já cobre insumos (mesma tabela)
-- [ ] #12 — Limpeza de `pending` órfãs + `SAME_PLAN` checar pendings existentes
-- [ ] #13 — `current()` retornar a assinatura vigente (`authorized`), não `latest()`
+- [x] #12 — `store()` retoma checkout de pending do mesmo plano (<24h, coluna `checkout_url`); as demais pendings são sempre canceladas (MP best-effort + local). Race webhook-antes-da-linha mantida (auto-resolve no retry do MP)
+- [x] #13 — `current()` retorna a assinatura **vigente** (exclui `pending`, prioriza authorized>paused>cancelled); checkout em andamento vai para `currentPending` (rota nova). Front separa `subscription` (vigente) de `pending` (polling) — sem masking/deadlock
 - [ ] #14 — Dedup por `x-request-id` + janela de frescor no `ts`
 - [ ] #15 — Índices `(cancel_at_period_end, ends_at)` e `(user_id, mp_status)`
 - [ ] #16 — Timeout nas chamadas HTTP ao MP; idealmente processar webhook em fila

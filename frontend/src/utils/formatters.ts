@@ -11,6 +11,21 @@ export function fmtQuantity(value: number | string | null | undefined): string {
   return quantityFmt.format(isNaN(n) ? 0 : n)
 }
 
+const dateFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+const dateTimeFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+
+export function fmtDate(value: string | null | undefined): string {
+  if (!value) return '—'
+  const d = new Date(value)
+  return isNaN(d.getTime()) ? '—' : dateFmt.format(d)
+}
+
+export function fmtDateTime(value: string | null | undefined): string {
+  if (!value) return '—'
+  const d = new Date(value)
+  return isNaN(d.getTime()) ? '—' : dateTimeFmt.format(d)
+}
+
 export function fmtPricePerUnit(
   totalPrice: number | string,
   packageSize: number | string,

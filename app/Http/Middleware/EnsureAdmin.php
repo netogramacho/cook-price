@@ -6,18 +6,16 @@ use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
-class EnsureAdminToken
+class EnsureAdmin
 {
     public function handle(Request $request, Closure $next): Response
     {
-        $configured = config('app.admin_token');
-
-        if (empty($configured) || $request->header('X-Admin-Token') !== $configured) {
+        if (!$request->user() || !$request->user()->is_admin) {
             return response()->json([
                 'success'    => false,
-                'message'    => 'Não autorizado.',
-                'error_code' => 'UNAUTHORIZED',
-            ], 401);
+                'message'    => 'Acesso restrito a administradores.',
+                'error_code' => 'ADMIN_ONLY',
+            ], 403);
         }
 
         return $next($request);

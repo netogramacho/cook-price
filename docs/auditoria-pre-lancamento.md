@@ -83,7 +83,7 @@ useEffect(() => {
 ---
 
 ### 8. `AdminController` sem middleware `auth:sanctum`
-A rota `POST admin/users/{userId}/plan` está fora de qualquer grupo de autenticação, protegida apenas por um header `X-Admin-Token` customizado. Se `APP_ADMIN_TOKEN` não estiver configurado no ambiente de produção, a rota pode ficar exposta.
+A rota `POST admin/users/{userId}/plan` estava fora de qualquer grupo de autenticação, protegida apenas por um header `X-Admin-Token` customizado. **Substituído** pelo painel admin: as rotas `/api/admin/*` agora exigem `auth:sanctum` + a flag `users.is_admin` (middleware `admin` / `EnsureAdmin`). O token `X-Admin-Token` e o middleware `EnsureAdminToken` foram removidos.
 
 **Arquivo:** `routes/api.php`
 
@@ -230,7 +230,7 @@ Inconsistência semântica — usuário free ou Basic recebe `productions_count`
 | 5 | Hard delete de ingrediente quebra receitas | ✅ Resolvido |
 | 6 | `recipe.yield` com `fmtCurrency` | ✅ Resolvido |
 | 7 | Preço do plano sem centavos | ✅ Resolvido |
-| 8 | AdminController sem `auth:sanctum` | ✅ Resolvido (middleware `admin.token`) |
+| 8 | AdminController sem `auth:sanctum` | ✅ Resolvido (painel admin: `auth:sanctum` + `is_admin`) |
 | 9 | Interface `Recipe` incompleta | ✅ Resolvido |
 | 10 | `RecipeIngredient.ingredient_id` fantasma | ✅ Resolvido (interface + referências em RecipeDetail) |
 | 11 | `destroy()` Ingredient sem verificar `active` | ✅ Resolvido |
