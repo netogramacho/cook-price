@@ -32,7 +32,8 @@ Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
     Route::post('subscriptions/{subscription}/cancel', [AdminSubscriptionController::class, 'cancel']);
     Route::post('subscriptions/{subscription}/sync',   [AdminSubscriptionController::class, 'sync']);
 
-    Route::get('mp/subscriptions', [MpSubscriptionController::class, 'index']);
+    Route::get('mp/subscriptions',                     [MpSubscriptionController::class, 'index']);
+    Route::post('mp/subscriptions/{preapproval}/cancel', [MpSubscriptionController::class, 'cancel']);
 
     Route::get('integration-logs', [IntegrationLogController::class, 'index']);
 });

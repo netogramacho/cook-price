@@ -69,6 +69,43 @@ class MpSubscriptionController extends Controller
     }
 
     /**
+     * Cancela uma preapproval direto no MercadoPago (pela tela de assinaturas do MP).
+     * Se houver assinatura local vinculada, reconcilia o estado mantendo o acesso até
+     * o fim do período pago — mesma semântica do cancelamento do painel de usuários.
+     */
+    public function cancel(string $preapproval): JsonResponse
+    {
+        try {
+            $this->mp->cancelPreapproval($preapproval);
+        } catch (\RuntimeException $e) {
+            return response()->json([
+                'success'    => false,
+                'message'    => $e->getMessage(),
+                'error_code' => 'MP_ERROR',
+            ], 502);
+        }
+
+        $subscription = Subscription::where('mp_preapproval_id', $preapproval)->first();
+
+        if ($subscription && $subscription->mp_status !== 'cancelled') {
+            $endsAt = $subscription->ends_at
+                ?? ($subscription->starts_at ? $subscription->starts_at->addMonth() : now()->addMonth());
+
+            $subscription->update([
+                'mp_status'            => 'cancelled',
+                'cancel_at_period_end' => true,
+                'ends_at'              => $endsAt,
+            ]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data'    => ['linked_subscription' => (bool) $subscription],
+            'message' => 'Assinatura cancelada no MercadoPago.',
+        ]);
+    }
+
+    /**
      * Normaliza a preapproval do MP e anexa o usuário local correlacionado
      * (por mp_preapproval_id; fallback por payer_email).
      */

@@ -4,9 +4,11 @@ import { AppHeader } from '../components/AppHeader'
 import { PageHeader } from '../components/ui/PageHeader'
 import { AsyncState } from '../components/ui/AsyncState'
 import { LoadMoreButton } from '../components/ui/LoadMoreButton'
+import { ConfirmModal } from '../components/ui/ConfirmModal'
 import { AdminService } from '../services/AdminService'
 import type { MpPreapproval, MpStatus } from '../services/AdminService'
 import { useAppStore } from '../store/useAppStore'
+import { useConfirmAction } from '../hooks/useConfirmAction'
 import { fmtCurrency, fmtDate } from '../utils/formatters'
 
 type Filter = 'authorized' | 'paused' | ''
@@ -22,7 +24,7 @@ const LIMIT = 50
 
 export function AdminMpSubscriptions() {
   const navigate = useNavigate()
-  const { error } = useAppStore()
+  const { success, error } = useAppStore()
 
   const [items, setItems] = useState<MpPreapproval[]>([])
   const [total, setTotal] = useState(0)
@@ -63,6 +65,15 @@ export function AdminMpSubscriptions() {
 
   useEffect(() => { load(filter) }, [filter])
 
+  const cancelSub = useConfirmAction<MpPreapproval>({
+    onConfirm: async (sub) => {
+      await AdminService.cancelMpSubscription(sub.id)
+      success('Assinatura cancelada no MercadoPago.')
+      await load(filter)
+    },
+    onError: error,
+  })
+
   return (
     <div className="app-layout">
       <AppHeader />
@@ -90,6 +101,7 @@ export function AdminMpSubscriptions() {
                     <th>Próxima cobrança</th>
                     <th>Status</th>
                     <th>ID MercadoPago</th>
+                    <th></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -105,6 +117,11 @@ export function AdminMpSubscriptions() {
                       <td>{fmtDate(sub.next_payment_date)}</td>
                       <td>{sub.status ? <span className={`badge badge-${sub.status}`}>{MP_STATUS_LABEL[sub.status]}</span> : '—'}</td>
                       <td><span className="admin-sub-meta">{sub.id}</span></td>
+                      <td className="td-actions">
+                        {sub.status && sub.status !== 'cancelled' && (
+                          <button className="btn btn-danger btn-sm" onClick={() => cancelSub.open(sub)}>Cancelar</button>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -114,6 +131,16 @@ export function AdminMpSubscriptions() {
           </AsyncState>
         </div>
       </main>
+
+      <ConfirmModal
+        visible={cancelSub.confirm.visible}
+        title="Cancelar Assinatura no MercadoPago"
+        message={<>Cancelar a assinatura de <strong>{cancelSub.confirm.item?.payer_email ?? cancelSub.confirm.item?.id}</strong> no MercadoPago? {cancelSub.confirm.item?.local_user ? 'A assinatura local vinculada será encerrada ao fim do período pago.' : 'Não há assinatura local vinculada — o cancelamento ocorre apenas no MercadoPago.'}</>}
+        loading={cancelSub.confirm.loading}
+        confirmText="Cancelar assinatura"
+        onConfirm={cancelSub.execute}
+        onClose={cancelSub.close}
+      />
     </div>
   )
 }

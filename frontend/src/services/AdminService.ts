@@ -132,6 +132,10 @@ export const AdminService = {
     return res.data
   },
 
+  cancelMpSubscription(preapprovalId: string): Promise<void> {
+    return api.post(`/admin/mp/subscriptions/${preapprovalId}/cancel`)
+  },
+
   async listLogs(page = 1, status = ''): Promise<PaginatedResult<IntegrationLog>> {
     const params = new URLSearchParams({ page: String(page) })
     if (status) params.set('status', status)
