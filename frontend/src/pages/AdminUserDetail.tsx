@@ -7,6 +7,7 @@ import { AdminService } from '../services/AdminService'
 import type { AdminUserDetail as Detail, AdminSubscription, MpStatus, PlanName } from '../services/AdminService'
 import { useAppStore } from '../store/useAppStore'
 import { useConfirmAction } from '../hooks/useConfirmAction'
+import { startImpersonation } from '../lib/auth'
 import { fmtDate, fmtDateTime } from '../utils/formatters'
 
 const MP_STATUS_LABEL: Record<MpStatus, string> = {
@@ -76,6 +77,19 @@ export function AdminUserDetail() {
     onError: error,
   })
 
+  const [impersonateOpen, setImpersonateOpen] = useState(false)
+
+  async function doImpersonate() {
+    try {
+      const res = await AdminService.impersonate(id)
+      startImpersonation(res.token, res.user)
+      window.location.href = '/dashboard' // reload completo para a app reler a sessão
+    } catch (err) {
+      error((err as { message?: string }).message ?? 'Erro ao acessar como usuário.')
+      setImpersonateOpen(false)
+    }
+  }
+
   return (
     <div className="app-layout">
       <AppHeader />
@@ -100,6 +114,11 @@ export function AdminUserDetail() {
                     <div><dt>Plano atual</dt><dd><span className="badge badge-ingredient">{detail.user.plan?.label ?? '—'}</span></dd></div>
                     <div><dt>Cadastro</dt><dd>{fmtDate(detail.user.created_at)}</dd></div>
                   </dl>
+                  {!detail.user.is_admin && (
+                    <div className="admin-card-actions">
+                      <button className="btn btn-secondary" onClick={() => setImpersonateOpen(true)}>Acessar como este usuário</button>
+                    </div>
+                  )}
                 </div>
 
                 <div className="admin-card">
@@ -192,6 +211,15 @@ export function AdminUserDetail() {
         confirmText="Cancelar assinatura"
         onConfirm={cancelSub.execute}
         onClose={cancelSub.close}
+      />
+
+      <ConfirmModal
+        visible={impersonateOpen}
+        title="Acessar como este usuário"
+        message={<>Você vai acessar o app como <strong>{detail?.user.name}</strong>. Sua sessão de admin fica preservada e você poderá voltar pelo aviso no topo.</>}
+        confirmText="Acessar como usuário"
+        onConfirm={doImpersonate}
+        onClose={() => setImpersonateOpen(false)}
       />
     </div>
   )

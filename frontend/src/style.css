@@ -1907,6 +1907,17 @@ tr:hover td { background: #FDF5F5; }
 .admin-filter-tabs { display: flex; gap: 8px; flex-wrap: wrap; }
 .admin-filter-tabs { margin-bottom: 14px; }
 
+.admin-card-actions { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); }
+
+.impersonation-banner {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 2000;
+    display: flex; align-items: center; justify-content: center; gap: 16px;
+    padding: 8px 16px; background: #8A6100; color: #fff; font-size: 14px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+}
+.impersonation-banner .btn { background: #fff; color: #8A6100; font-weight: 700; }
+.impersonation-banner .btn:hover { background: #F5EFE6; }
+
 .text-muted { color: var(--text-muted); }
 .link-button {
     background: none; border: none; padding: 0; cursor: pointer;

@@ -1,5 +1,5 @@
 import { api } from '../lib/api'
-import type { UserPlan } from '../lib/auth'
+import type { AuthUser, UserPlan } from '../lib/auth'
 
 export type PlanName = 'free' | 'basic' | 'pro' | 'trial'
 export type MpStatus = 'pending' | 'authorized' | 'paused' | 'cancelled'
@@ -115,6 +115,10 @@ export const AdminService = {
 
   sendPasswordReset(id: string): Promise<void> {
     return api.post(`/admin/users/${id}/send-password-reset`)
+  },
+
+  impersonate(id: string): Promise<{ token: string; user: AuthUser }> {
+    return api.post<{ data: { token: string; user: AuthUser } }>(`/admin/users/${id}/impersonate`).then(r => r.data)
   },
 
   cancelSubscription(id: string): Promise<void> {

@@ -28,6 +28,7 @@ Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
     Route::post('users/{user}/resend-verification', [AdminUserController::class, 'resendVerification']);
     Route::post('users/{user}/verify-email',        [AdminUserController::class, 'verifyEmail']);
     Route::post('users/{user}/send-password-reset', [AdminUserController::class, 'sendPasswordReset']);
+    Route::post('users/{user}/impersonate',         [AdminUserController::class, 'impersonate']);
 
     Route::post('subscriptions/{subscription}/cancel', [AdminSubscriptionController::class, 'cancel']);
     Route::post('subscriptions/{subscription}/sync',   [AdminSubscriptionController::class, 'sync']);

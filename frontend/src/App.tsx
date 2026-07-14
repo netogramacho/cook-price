@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AppLoader } from './components/AppLoader'
 import { NotificationContainer } from './components/Notification'
+import { ImpersonationBanner } from './components/ImpersonationBanner'
 import { PlanModal } from './components/PlanModal'
 import { Login } from './pages/Login'
 import { Register } from './pages/Register'
@@ -76,6 +77,7 @@ export function App() {
   return (
     <BrowserRouter>
       <AppLoader />
+      <ImpersonationBanner />
       <NotificationContainer />
       <PlanModal visible={planModalOpen} message={planModalMessage} onClose={() => { setPlanModalOpen(false); setPlanModalMessage(null) }} />
       <Routes>

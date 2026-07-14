@@ -13,6 +13,7 @@ use App\Models\Subscription;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Validation\Rule;
@@ -140,6 +141,43 @@ class UserController extends Controller
             'success' => true,
             'data'    => null,
             'message' => 'Link de redefinição de senha enviado ao usuário.',
+        ]);
+    }
+
+    /**
+     * Gera um token de acesso ("impersonation") para o admin acessar a conta do
+     * usuário. Não é permitido impersonar outro administrador.
+     */
+    public function impersonate(Request $request, User $user): JsonResponse
+    {
+        if ($user->is_admin) {
+            return response()->json([
+                'success'    => false,
+                'message'    => 'Não é possível acessar como outro administrador.',
+                'error_code' => 'CANNOT_IMPERSONATE_ADMIN',
+            ], 422);
+        }
+
+        $token = $user->createToken('impersonation')->plainTextToken;
+
+        // Auditoria: registra quem acessou como quem.
+        Log::info('admin.impersonation', [
+            'admin_id'  => $request->user()->id,
+            'target_id' => $user->id,
+        ]);
+
+        $user->load('plan');
+
+        return response()->json([
+            'success' => true,
+            'data'    => [
+                'user'  => array_merge(
+                    $user->only('id', 'name', 'email', 'phone', 'email_verified_at', 'is_admin'),
+                    ['plan' => $user->plan]
+                ),
+                'token' => $token,
+            ],
+            'message' => "Acessando como {$user->name}.",
         ]);
     }
 }
