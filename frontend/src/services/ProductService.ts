@@ -19,6 +19,20 @@ export interface ProductInsumoLine {
   subtotal: number
 }
 
+export interface ProductSalesChannelLine {
+  id: string
+  name: string
+  fee_pct: number
+  /** Preço por gross-up: sugerido ÷ (1 − taxa) */
+  calculated_price: number
+  /** Preço fixado manualmente pelo usuário; null = usa o calculado */
+  custom_price: number | null
+  price: number
+  fee_amount: number
+  net_price: number
+  margin_pct: number
+}
+
 export interface Product {
   id: string
   name: string
@@ -33,6 +47,7 @@ export interface Product {
   recipes: ProductRecipeLine[]
   ingredients: ProductInsumoLine[]
   insumos: ProductInsumoLine[]
+  sales_channels: ProductSalesChannelLine[]
   recipes_cost: number
   ingredients_cost: number
   insumos_cost: number
@@ -42,7 +57,11 @@ export interface Product {
   profit_margin_pct: number
   suggested_price: number
   cost_per_yield: number
+  /** Preço de venda por unidade: o manual quando existe, senão o calculado */
   suggested_price_per_yield: number
+  /** Preço por unidade fixado à mão; null = calculado pelo multiplicador */
+  custom_price: number | null
+  calculated_price_per_yield: number
 }
 
 export interface ProductRecipeInput {
@@ -99,6 +118,18 @@ export const ProductService = {
 
   async delete(id: string): Promise<void> {
     await api.delete(`/products/${id}`)
+  },
+
+  /** Preço de venda por unidade; null devolve o produto ao preço calculado pelo multiplicador. */
+  async updatePrice(id: string, custom_price: number | null): Promise<Product> {
+    const res = await api.put<{ data: Product }>(`/products/${id}/price`, { custom_price })
+    return res.data
+  },
+
+  /** Preços manuais por app; custom_price null devolve a linha ao preço calculado. */
+  async updateChannelPrices(id: string, sales_channels: { sales_channel_id: string; custom_price: number | null }[]): Promise<Product> {
+    const res = await api.put<{ data: Product }>(`/products/${id}/channel-prices`, { sales_channels })
+    return res.data
   },
 
   async fromRecipe(recipeId: string): Promise<Product> {

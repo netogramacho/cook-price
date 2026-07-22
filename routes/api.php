@@ -14,6 +14,7 @@ use App\Http\Controllers\PasswordResetController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProductionController;
 use App\Http\Controllers\RecipeController;
+use App\Http\Controllers\SalesChannelController;
 use App\Http\Controllers\SubscriptionController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\VerifyEmailController;
@@ -72,7 +73,10 @@ Route::middleware(['auth:sanctum', EnsureEmailIsVerified::class])->group(functio
 
     Route::middleware('plan.feature:has_products')->group(function () {
         Route::post('recipes/{recipe}/to-product', [ProductController::class, 'fromRecipe']);
+        Route::put('products/{product}/price',          [ProductController::class, 'updatePrice']);
+        Route::put('products/{product}/channel-prices', [ProductController::class, 'updateChannelPrices']);
         Route::apiResource('products', ProductController::class);
+        Route::apiResource('sales-channels', SalesChannelController::class)->except('show');
     });
 
     Route::middleware('plan.feature:has_production')->group(function () {

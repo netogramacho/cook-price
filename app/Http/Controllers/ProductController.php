@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\Product\StoreProductRequest;
+use App\Http\Requests\Product\UpdateChannelPricesRequest;
+use App\Http\Requests\Product\UpdatePriceRequest;
 use App\Http\Requests\Product\UpdateProductRequest;
 use App\Models\Product;
 use App\Models\Recipe;
@@ -24,19 +26,26 @@ class ProductController extends Controller
 
         $products = Product::where('user_id', $request->user()->id)
             ->where('active', true)
-            ->with(['recipes', 'insumos'])
+            ->with(['recipes', 'insumos', 'salesChannels'])
             ->when($search, fn ($q) => $q->where('name', 'like', '%' . $search . '%'))
             ->orderBy('name')
             ->paginate($per_page);
 
-        $products->getCollection()->transform(function ($product) {
-            $cost = $this->cost_service->calculate($product);
+        // Canais carregados uma vez para toda a página (evita uma query por produto)
+        $channels = ProductCostService::channelsOf($request->user()->id);
+
+        $products->getCollection()->transform(function ($product) use ($channels) {
+            $cost = $this->cost_service->calculate($product, $channels);
 
             return array_merge($product->toArray(), [
-                'base_cost'                 => $cost['base_cost'],
-                'production_cost'           => $cost['production_cost'],
-                'cost_per_yield'            => $cost['cost_per_yield'],
-                'suggested_price_per_yield' => $cost['suggested_price_per_yield'],
+                'base_cost'                  => $cost['base_cost'],
+                'production_cost'            => $cost['production_cost'],
+                'cost_per_yield'             => $cost['cost_per_yield'],
+                'suggested_price_per_yield'  => $cost['suggested_price_per_yield'],
+                'custom_price'               => $cost['custom_price'],
+                'calculated_price_per_yield' => $cost['calculated_price_per_yield'],
+                // Substitui a relação crua pelas linhas já calculadas (preço, líquido, margem)
+                'sales_channels'             => $cost['sales_channels'],
             ]);
         });
 
@@ -167,9 +176,44 @@ class ProductController extends Controller
         return $this->respondWithProduct($product, 'Produto criado a partir da receita.', 201);
     }
 
+    /**
+     * Preço de venda por unidade de rendimento definido à mão.
+     * Enviar custom_price null devolve o produto ao preço calculado pelo multiplicador.
+     */
+    public function updatePrice(UpdatePriceRequest $request, Product $product): JsonResponse
+    {
+        if ($denied = $this->authorizeProduct($request, $product)) return $denied;
+
+        $product->update(['custom_price' => $request->custom_price]);
+
+        return $this->respondWithProduct($product, $request->custom_price === null
+            ? 'Preço voltou a ser calculado pelo multiplicador.'
+            : 'Preço sugerido atualizado com sucesso.');
+    }
+
+    /**
+     * Preço manual do produto em cada app. Enviar custom_price null (ou omitir o canal)
+     * devolve a linha ao preço calculado pela taxa.
+     */
+    public function updateChannelPrices(UpdateChannelPricesRequest $request, Product $product): JsonResponse
+    {
+        if ($denied = $this->authorizeProduct($request, $product)) return $denied;
+
+        $sync = [];
+        foreach ($request->sales_channels as $item) {
+            if (($item['custom_price'] ?? null) === null) continue;
+
+            $sync[$item['sales_channel_id']] = ['custom_price' => $item['custom_price']];
+        }
+
+        $product->salesChannels()->sync($sync);
+
+        return $this->respondWithProduct($product, 'Preços por aplicativo atualizados com sucesso.');
+    }
+
     private function respondWithProduct(Product $product, string $message, int $status = 200): JsonResponse
     {
-        $product->load(['recipes', 'insumos']);
+        $product->load(['recipes', 'insumos', 'salesChannels']);
         $cost = $this->cost_service->calculate($product);
 
         return response()->json([
@@ -245,29 +289,32 @@ class ProductController extends Controller
     private function formatProduct(Product $product, array $cost): array
     {
         return [
-            'id'                        => $product->id,
-            'name'                      => $product->name,
-            'description'               => $product->description,
-            'yield'                     => $product->yield,
-            'yield_unit'                => $product->yield_unit,
-            'invisible_cost_pct'        => $product->invisible_cost_pct,
-            'profit_multiplier'         => $product->profit_multiplier,
-            'active'                    => $product->active,
-            'created_at'                => $product->created_at,
-            'updated_at'                => $product->updated_at,
-            'recipes'                   => $cost['recipes'],
-            'ingredients'               => $cost['ingredients'],
-            'insumos'                   => $cost['insumos'],
-            'recipes_cost'              => $cost['recipes_cost'],
-            'ingredients_cost'          => $cost['ingredients_cost'],
-            'insumos_cost'              => $cost['insumos_cost'],
-            'base_cost'                 => $cost['base_cost'],
-            'invisible_cost'            => $cost['invisible_cost'],
-            'production_cost'           => $cost['production_cost'],
-            'profit_margin_pct'         => $cost['profit_margin_pct'],
-            'suggested_price'           => $cost['suggested_price'],
-            'cost_per_yield'            => $cost['cost_per_yield'],
-            'suggested_price_per_yield' => $cost['suggested_price_per_yield'],
+            'id'                         => $product->id,
+            'name'                       => $product->name,
+            'description'                => $product->description,
+            'yield'                      => $product->yield,
+            'yield_unit'                 => $product->yield_unit,
+            'invisible_cost_pct'         => $product->invisible_cost_pct,
+            'profit_multiplier'          => $product->profit_multiplier,
+            'active'                     => $product->active,
+            'created_at'                 => $product->created_at,
+            'updated_at'                 => $product->updated_at,
+            'recipes'                    => $cost['recipes'],
+            'ingredients'                => $cost['ingredients'],
+            'insumos'                    => $cost['insumos'],
+            'sales_channels'             => $cost['sales_channels'],
+            'recipes_cost'               => $cost['recipes_cost'],
+            'ingredients_cost'           => $cost['ingredients_cost'],
+            'insumos_cost'               => $cost['insumos_cost'],
+            'base_cost'                  => $cost['base_cost'],
+            'invisible_cost'             => $cost['invisible_cost'],
+            'production_cost'            => $cost['production_cost'],
+            'profit_margin_pct'          => $cost['profit_margin_pct'],
+            'suggested_price'            => $cost['suggested_price'],
+            'cost_per_yield'             => $cost['cost_per_yield'],
+            'suggested_price_per_yield'  => $cost['suggested_price_per_yield'],
+            'custom_price'               => $cost['custom_price'],
+            'calculated_price_per_yield' => $cost['calculated_price_per_yield'],
         ];
     }
 }

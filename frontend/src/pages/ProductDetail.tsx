@@ -4,6 +4,8 @@ import { AppHeader } from '../components/AppHeader'
 import { AsyncState } from '../components/ui/AsyncState'
 import { ProductForm } from '../components/ProductForm'
 import { ProduceModal } from '../components/ProduceModal'
+import { ProductChannelPrices } from '../components/ProductChannelPrices'
+import { ProductCurrentPrice } from '../components/ProductCurrentPrice'
 import { getUser } from '../lib/auth'
 import { triggerPlanUpgrade } from '../lib/api'
 import { ProductService } from '../services/ProductService'
@@ -122,13 +124,20 @@ export function ProductDetail() {
                     <label>Custo por {product.yield_unit}</label>
                     <strong>R$ {fmtCurrency(product.cost_per_yield)}</strong>
                   </div>
+                  <div className="cost-item">
+                    <label>Preço Sugerido / {product.yield_unit} ({fmtQuantity(product.profit_multiplier)}x)</label>
+                    <strong>R$ {fmtCurrency(product.calculated_price_per_yield)}</strong>
+                  </div>
                   <div style={{ flexBasis: '100%' }}>
-                    <div className="cost-item cost-item-highlight">
-                      <label>Preço Sugerido / {product.yield_unit} ({String(product.profit_multiplier)}x · margem {String(product.profit_margin_pct)}%)</label>
-                      <strong>R$ {fmtCurrency(product.suggested_price_per_yield)}</strong>
-                    </div>
+                    <ProductCurrentPrice product={product} onProductUpdated={setProduct} />
                   </div>
                 </div>
+
+                <ProductChannelPrices
+                  product={product}
+                  onProductUpdated={setProduct}
+                  onRefetch={fetchProduct}
+                />
 
                 <p className="section-title">Receitas</p>
                 <div className="table-wrapper">

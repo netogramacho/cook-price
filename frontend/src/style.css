@@ -1485,6 +1485,16 @@ tr:hover td { background: #FDF5F5; }
 /* Recipe header actions */
 .recipe-header-actions { display: flex; gap: 8px; align-items: center; }
 
+/* Preço atual de venda (editável, centralizado no card destacado) */
+.price-edit { display: flex; gap: 8px; align-items: center; justify-content: center; flex-wrap: wrap; }
+.price-edit input { width: 110px; }
+.price-edit-hint { display: block; margin-top: 8px; font-size: 12px; color: rgba(255, 255, 255, 0.85); }
+
+/* Preço por app de delivery */
+.channel-price-edit { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.channel-price-edit input { width: 90px; }
+.channel-row-actions { display: flex; gap: 6px; justify-content: flex-end; }
+
 /* Produce warning */
 .produce-warning {
     margin-top: 12px;
