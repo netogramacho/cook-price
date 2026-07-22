@@ -15,13 +15,17 @@ class MercadoPagoService
     private string $webhookSecret;
     private string $backUrl;
     private bool $verifySsl;
+    private int $timeout;
+    private int $connectTimeout;
 
     public function __construct()
     {
-        $this->accessToken   = config('mercadopago.access_token');
-        $this->webhookSecret = config('mercadopago.webhook_secret');
-        $this->backUrl       = config('mercadopago.back_url');
-        $this->verifySsl     = (bool) config('mercadopago.verify_ssl', true);
+        $this->accessToken    = config('mercadopago.access_token');
+        $this->webhookSecret  = config('mercadopago.webhook_secret');
+        $this->backUrl        = config('mercadopago.back_url');
+        $this->verifySsl      = (bool) config('mercadopago.verify_ssl', true);
+        $this->timeout        = (int) config('mercadopago.timeout', 15);
+        $this->connectTimeout = (int) config('mercadopago.connect_timeout', 5);
 
         // Detecta configuracao ausente no boot, em vez de falhar silenciosamente em producao.
         if (empty($this->webhookSecret) && app()->environment('production')) {
@@ -172,7 +176,9 @@ class MercadoPagoService
 
     private function http(): \Illuminate\Http\Client\PendingRequest
     {
-        $client = Http::withToken($this->accessToken);
+        $client = Http::withToken($this->accessToken)
+            ->connectTimeout($this->connectTimeout)
+            ->timeout($this->timeout);
         if (!$this->verifySsl) {
             $client = $client->withoutVerifying();
         }

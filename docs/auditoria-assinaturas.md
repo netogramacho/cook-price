@@ -183,8 +183,8 @@ Se um usuário ficar com `plan_id=null` (ex.: factory/seed/admin), o backend ret
 - [x] #12 — `store()` retoma checkout de pending do mesmo plano (<24h, coluna `checkout_url`); as demais pendings são sempre canceladas (MP best-effort + local). Race webhook-antes-da-linha mantida (auto-resolve no retry do MP)
 - [x] #13 — `current()` retorna a assinatura **vigente** (exclui `pending`, prioriza authorized>paused>cancelled); checkout em andamento vai para `currentPending` (rota nova). Front separa `subscription` (vigente) de `pending` (polling) — sem masking/deadlock
 - [ ] #14 — Dedup por `x-request-id` + janela de frescor no `ts`
-- [ ] #15 — Índices `(cancel_at_period_end, ends_at)` e `(user_id, mp_status)`
-- [ ] #16 — Timeout nas chamadas HTTP ao MP; idealmente processar webhook em fila
+- [x] #15 — Índices `(cancel_at_period_end, ends_at)` e `(user_id, mp_status)`
+- [x] #16 — Timeout nas chamadas HTTP ao MP (`connect_timeout=5s`, `timeout=15s`, configuráveis via `config/mercadopago.php`). Processar webhook em fila deixado fora de escopo (timeout já quebra a cascata de saturação)
 - [ ] #17 — Retorno não-JSON do MP (`logOutgoing` já endurecido; falta `createPreapproval`/`getPreapproval`/`getAuthorizedPayment`)
 - [ ] #18 — Reduzir `tokenHint` e redigir PII/respostas sensíveis em `IntegrationLog`
 - [ ] #19 — `RequiresPlanFeature` retornar 403 (não 500) quando `plan` for null
